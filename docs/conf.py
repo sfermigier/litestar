@@ -16,6 +16,7 @@ PY_RE = r"py:.*"
 PY_METH = "py:meth"
 PY_ATTR = "py:attr"
 PY_OBJ = "py:obj"
+PY_FUNC = "py:func"
 
 project = "Litestar"
 copyright = "2023, Litestar-Org"
@@ -51,6 +52,7 @@ intersphinx_mapping = {
     "tortoise": ("https://tortoise.github.io/", None),
     "piccolo": ("https://piccolo-orm.readthedocs.io/en/latest", None),
     "opentelemetry": ("https://opentelemetry-python.readthedocs.io/en/latest/", None),
+    "advanced-alchemy": ("https://docs.advanced-alchemy.jolt.rs/latest/", None),
 }
 
 
@@ -82,6 +84,7 @@ nitpick_ignore = [
     (PY_CLASS, "_schema.Table"),
     (PY_CLASS, "_types.TypeDecorator"),
     (PY_CLASS, "abc.Collection"),
+    (PY_CLASS, "jinja2.environment.Environment"),
     (PY_CLASS, "pydantic.BaseModel"),
     (PY_CLASS, "pydantic.generics.GenericModel"),
     (PY_CLASS, "pydantic.main.BaseModel"),
@@ -97,26 +100,32 @@ nitpick_ignore = [
     (PY_CLASS, "AnyIOBackend"),
     (PY_CLASS, "BaseSessionBackendT"),
     (PY_CLASS, "C"),
+    (PY_CLASS, "CollectionT"),
     (PY_CLASS, "ControllerRouterHandler"),
     (PY_CLASS, "EmptyType"),
+    (PY_CLASS, "ModelT"),
     (PY_CLASS, "PathParameterDefinition"),
     (PY_CLASS, "RouteHandlerType"),
+    (PY_CLASS, "SelectT"),
     (PY_CLASS, "T"),
-    (PY_CLASS, "litestar.contrib.repository.abc.CollectionT"),
-    (PY_CLASS, "litestar.contrib.sqlalchemy.repository.SelectT"),
     (PY_OBJ, "litestar.security.base.AuthType"),
     # intentionally undocumented
     (PY_CLASS, "BacklogStrategy"),
     (PY_CLASS, "ExceptionT"),
     (PY_CLASS, "NoneType"),
     (PY_CLASS, "litestar._openapi.schema_generation.schema.SchemaCreator"),
+    (PY_CLASS, "litestar._signature.model.SignatureModel"),
     (PY_CLASS, "litestar.utils.signature.ParsedSignature"),
     (PY_CLASS, "litestar.utils.sync.AsyncCallable"),
-    (PY_CLASS, "litestar._signature.model.SignatureModel"),
     # types in changelog that no longer exist
     (PY_ATTR, "litestar.dto.factory.DTOConfig.underscore_fields_private"),
     (PY_CLASS, "anyio.abc.BlockingPortal"),
     (PY_CLASS, "litestar.contrib.msgspec.MsgspecDTO"),
+    (PY_CLASS, "litestar.contrib.repository.filters.NotInCollectionFilter"),
+    (PY_CLASS, "litestar.contrib.repository.filters.NotInSearchFilter"),
+    (PY_CLASS, "litestar.contrib.repository.filters.OnBeforeAfter"),
+    (PY_CLASS, "litestar.contrib.repository.filters.OrderBy"),
+    (PY_CLASS, "litestar.contrib.repository.filters.SearchFilter"),
     (PY_CLASS, "litestar.dto.base_factory.AbstractDTOFactory"),
     (PY_CLASS, "litestar.dto.factory.DTOConfig"),
     (PY_CLASS, "litestar.dto.factory.DTOData"),
@@ -125,31 +134,51 @@ nitpick_ignore = [
     (PY_CLASS, "litestar.response.RedirectResponse"),
     (PY_CLASS, "litestar.response_containers.Redirect"),
     (PY_CLASS, "litestar.response_containers.Template"),
+    (PY_CLASS, "litestar.contrib.sqlalchemy.types.BigIntIdentity"),
+    (PY_CLASS, "litestar.contrib.sqlalchemy.types.JsonB"),
     (PY_CLASS, "litestar.typing.ParsedType"),
     (PY_METH, "litestar.dto.factory.DTOData.create_instance"),
     (PY_METH, "litestar.dto.interface.DTOInterface.data_to_encodable_type"),
+    (PY_CLASS, "advanced_alchemy.repository.typing.ModelT"),
+    (PY_CLASS, "advanced_alchemy.config.common.EngineT"),
+    (PY_CLASS, "advanced_alchemy.config.common.SessionT"),
+    (PY_CLASS, "advanced_alchemy.config.EngineConfig"),
+    (PY_CLASS, "advanced_alchemy.extensions.litestar.plugins.SQLAlchemyPlugin"),
+    (PY_CLASS, "advanced_alchemy.extensions.litestar.plugins.SQLAlchemySerializationPlugin"),
+    (PY_CLASS, "advanced_alchemy.extensions.litestar.plugins.SQLAlchemyInitPlugin"),
+    (PY_CLASS, "advanced_alchemy.extensions.litestar.config.SQLAlchemySyncConfig"),
+    (PY_CLASS, "advanced_alchemy.extensions.litestar.config.SQLAlchemyAsyncConfig"),
+    (PY_METH, "advanced_alchemy.extensions.litestar.plugins.SQLAlchemySerializationPlugin.create_dto_for_type"),
+    (PY_CLASS, "advanced_alchemy.config.AsyncSessionConfig"),
+    (PY_CLASS, "advanced_alchemy.config.SyncSessionConfig"),
+    (PY_CLASS, "advanced_alchemy.types.JsonB"),
+    (PY_CLASS, "advanced_alchemy.types.BigIntIdentity"),
+    (PY_FUNC, "sqlalchemy.get_engine"),
+    (PY_ATTR, "advanced_alchemy.repository.AbstractAsyncRepository.id_attribute"),
 ]
 
 nitpick_ignore_regex = [
-    (PY_RE, r"litestar\.types.*"),
-    (PY_RE, r"litestar.*\.T"),
+    (PY_ATTR, "litestar.repository.testing.AsyncGenericMockRepository.id_attribute"),
+    (PY_ATTR, "litestar.repository.AbstractAsyncRepository.id_attribute"),
+    (PY_ATTR, "litestar.repository.AbstractSyncRepository.id_attribute"),
+    # (PY_ATTR, "litestar.repository.AsyncGenericMockRepository.id_attribute"),
+    (PY_OBJ, r"typing\..*"),
     (PY_RE, r".*R_co"),
-    (PY_RE, r"ModelT"),
-    (PY_RE, r"litestar.contrib.sqlalchemy.repository.ModelT"),
     (PY_RE, r".*UserType"),
+    (PY_RE, r"ModelT"),
+    (PY_RE, r"litestar.*\.T"),
+    (PY_RE, r"litestar.contrib.sqlalchemy.repository.ModelT"),
     (PY_RE, r"litestar\.middleware\.session\.base\.BaseSessionBackendT"),
-    (r"py:obj", r"typing\..*"),
-    (r"py:attr", "litestar.contrib.repository.AbstractAsyncRepository.id_attribute"),
-    (r"py:attr", "litestar.contrib.repository.AbstractSyncRepository.id_attribute"),
+    (PY_RE, r"litestar\.types.*"),
     (PY_RE, r"httpx.*"),
     # type vars
-    (PY_RE, r"litestar\.pagination\.C"),
     (PY_RE, r"litestar.middleware.session.base.ConfigT"),
-    (PY_RE, r"multidict\..*"),
-    (PY_RE, r"litestar\.connection\.base\.UserT"),
     (PY_RE, r"litestar\.connection\.base\.AuthT"),
-    (PY_RE, r"litestar\.connection\.base\.StateT"),
     (PY_RE, r"litestar\.connection\.base\.HandlerT"),
+    (PY_RE, r"litestar\.connection\.base\.StateT"),
+    (PY_RE, r"litestar\.connection\.base\.UserT"),
+    (PY_RE, r"litestar\.pagination\.C"),
+    (PY_RE, r"multidict\..*"),
 ]
 
 # Warnings about missing references to those targets in the specified location will be ignored.
@@ -164,7 +193,7 @@ ignore_missing_refs = {
     "litestar.response.file.async_file_iterator": {"FileSystemAdapter"},
     re.compile("litestar.response.redirect.*"): {"RedirectStatusType"},
     re.compile(r"litestar\.plugins.*"): re.compile(".*ModelT"),
-    re.compile(r"litestar\.contrib\.*"): re.compile(".*T"),
+    re.compile(r"litestar\.(contrib|repository)\.*"): re.compile(".*T"),
     re.compile(r"litestar\.contrib\.sqlalchemy\.*"): re.compile(
         ".*(ConnectionT|EngineT|SessionT|SessionMakerT|SlotsBase)"
     ),

@@ -3,6 +3,106 @@
 2.x Changelog
 =============
 
+.. changelog:: 2.0.0
+    :date: 2023/08/19
+
+    .. change:: Regression | Missing ``media_type`` information to error responses
+        :type: bugfix
+        :pr: 2131
+        :issue: 2024
+
+        Fixed a regression that caused error responses to be sent using a mismatched
+        media type, e.g. an error response from a ``text/html`` endpoint would be sent
+        as JSON.
+
+    .. change:: Regression | ``Litestar.debug`` does not propagate to exception handling middleware
+        :type: bugfix
+        :pr: 2153
+        :issue: 2147
+
+        Fixed a regression where setting ``Litestar.debug`` would not propagate to the
+        exception handler middleware, resulting in exception responses always being sent
+        using the initial debug value.
+
+    .. change:: Static files not being served if a route handler with the same base path was registered
+        :type: bugfix
+        :pr: 2154
+
+        Fixed a bug that would result in a ``404 - Not Found`` when requesting a static
+        file where the :attr:`~litestar.static_files.StaticFilesConfig.path` was also
+        used by a route handler.
+
+    .. change:: HTMX: Missing default values for ``receive`` and ``send`` parameters of ``HTMXRequest``
+        :type: bugfix
+        :pr: 2145
+
+        Add missing default values for the ``receive`` and ``send`` parameters of
+        :class:`~litestar.contrib.htmx.request.HTMXRequest`.
+
+    .. change:: DTO: Excluded attributes accessed during transfer
+        :type: bugfix
+        :pr: 2127
+        :issue: 2125
+
+        Fix the behaviour of DTOs such that they will no longer access fields that have
+        been included. This behaviour would previously cause issues when these
+        attributes were either costly or impossible to access (e.g. lazy loaded
+        relationships of a SQLAlchemy model).
+
+    .. change:: DTO | Regression: ``DTOData.create_instance`` ignores renaming
+        :type: bugfix
+        :pr: 2144
+
+        Fix a regression where calling
+        :meth:`~litestar.dto.data_structures.DTOData.create_instance` would ignore the
+        renaming settings of fields.
+
+    .. change:: OpenAPI | Regression: Response schema for files and streams set ``application/octet-stream`` as ``contentEncoding`` instead of ``contentMediaType``
+        :type: bugfix
+        :pr: 2130
+
+        Fix a regression that would set ``application/octet-stream`` as the ``contentEncoding``
+        instead of ``contentMediaType`` in the response schema of
+        :class:`~litestar.response.File` :class:`~litestar.response.Stream`.
+
+    .. change:: OpenAPI | Regression: Response schema diverges from ``prefer_alias`` setting for Pydantic models
+        :type: bugfix
+        :pr: 2150
+
+        Fix a regression that made the response schema use ``prefer_alias=True``,
+        diverging from how Pydantic models are exported by default.
+
+    .. change:: OpenAPI | Regression: Examples not being generated deterministically
+        :type: bugfix
+        :pr: 2161
+
+        Fix a regression that made generated examples non-deterministic, caused by a
+        misconfiguration of the random seeding.
+
+    .. change:: SQLAlchemy repository: Handling of dialects not supporting JSON
+        :type: bugfix
+        :pr: 2139
+        :issue: 2137
+
+        Fix a bug where SQLAlchemy would raise a :exc:`TypeError` when using a dialect
+        that does not support JSON with the SQLAlchemy repositories.
+
+    .. change:: JWT | Regression: ``OPTIONS`` and ``HEAD`` being authenticated by default
+        :type: bugfix
+        :pr: 2160
+
+        Fix a regression that would make
+        :class:`~litestar.contrib.jwt.JWTAuthenticationMiddleware` authenticate
+        ``OPTIONS`` and ``HEAD`` requests by default.
+
+    .. change:: SessionAuth | Regression: ``OPTIONS`` and ``HEAD`` being authenticated by default
+        :type: bugfix
+        :pr: 2182
+
+        Fix a regression that would make
+        :class:`~litestar.security.session_auth.middleware.SessionAuthMiddleware` authenticate
+        ``OPTIONS`` and ``HEAD`` requests by default.
+
 .. changelog:: 2.0.0rc1
     :date: 2023/08/05
 
@@ -31,6 +131,7 @@
         .. seealso::
             :ref:`Server Sent Events <usage/responses:Server Sent Event Responses>`
 
+
     .. change:: SQLAlchemy repository: allow specifying ``id_attribute`` per method
         :type: feature
         :pr: 2052
@@ -38,15 +139,15 @@
         The following methods now accept an ``id_attribute`` argument, allowing to
         specify an alternative value to the models primary key:
 
-        - :meth:`~litestar.contrib.sqlalchemy.repository.SQLAlchemyAsyncRepository.delete`
-        - :meth:`~litestar.contrib.sqlalchemy.repository.SQLAlchemyAsyncRepository.delete_many`
-        - :meth:`~litestar.contrib.sqlalchemy.repository.SQLAlchemyAsyncRepository.get`
-        - :meth:`~litestar.contrib.sqlalchemy.repository.SQLAlchemyAsyncRepository.update`
+        - ``~litestar.contrib.sqlalchemy.repository.SQLAlchemyAsyncRepository.delete``
+        - ``~litestar.contrib.sqlalchemy.repository.SQLAlchemyAsyncRepository.delete_many``
+        - ``~litestar.contrib.sqlalchemy.repository.SQLAlchemyAsyncRepository.get``
+        - ``~litestar.contrib.sqlalchemy.repository.SQLAlchemyAsyncRepository.update``
 
-        - :meth:`~litestar.contrib.sqlalchemy.repository.SQLAlchemySyncRepository.delete`
-        - :meth:`~litestar.contrib.sqlalchemy.repository.SQLAlchemySyncRepository.delete_many`
-        - :meth:`~litestar.contrib.sqlalchemy.repository.SQLAlchemySyncRepository.get`
-        - :meth:`~litestar.contrib.sqlalchemy.repository.SQLAlchemySyncRepository.update`
+        - ``~litestar.contrib.sqlalchemy.repository.SQLAlchemySyncRepository.delete``
+        - ``~litestar.contrib.sqlalchemy.repository.SQLAlchemySyncRepository.delete_many``
+        - ``~litestar.contrib.sqlalchemy.repository.SQLAlchemySyncRepository.get``
+        - ``~litestar.contrib.sqlalchemy.repository.SQLAlchemySyncRepository.update``
 
     .. change:: SQLAlchemy repository: New ``upsert_many`` method
         :type: feature
@@ -57,8 +158,8 @@
         model instances.
 
         .. seealso::
-            :meth:`~litestar.contrib.sqlalchemy.repository.SQLAlchemyAsyncRepository.upsert_many`
-            :meth:`~litestar.contrib.sqlalchemy.repository.SQLAlchemySyncRepository.upsert_many`
+            ``~litestar.contrib.sqlalchemy.repository.SQLAlchemyAsyncRepository.upsert_many``
+            ``~litestar.contrib.sqlalchemy.repository.SQLAlchemySyncRepository.upsert_many``
 
     .. change:: SQLAlchemy repository: New filters: ``OnBeforeAfter``, ``NotInCollectionFilter`` and ``NotInSearchFilter``
         :type: feature
@@ -66,15 +167,15 @@
 
         The following filters have been added to the SQLAlchemy repositories:
 
-        :class:`~litestar.contrib.repository.filters.OnBeforeAfter`
+        ``litestar.contrib.repository.filters.OnBeforeAfter``
 
             Allowing to filter :class:`datetime.datetime` columns
 
-        :class:`~litestar.contrib.repository.filters.NotInCollectionFilter`
+        ``litestar.contrib.repository.filters.NotInCollectionFilter``
 
             Allowing to filter using a ``WHERE ... NOT IN (...)`` clause
 
-        :class:`~litestar.contrib.repository.filters.NotInSearchFilter`
+        ``litestar.contrib.repository.filters.NotInSearchFilter``
 
             Allowing to filter using a `WHERE field_name NOT LIKE '%' || :value || '%'`` clause
 
@@ -96,15 +197,15 @@
         ``id_attribute``, and the following methods:
 
 
-        - :meth:`~litestar.contrib.sqlalchemy.repository.SQLAlchemyAsyncRepository.delete`
-        - :meth:`~litestar.contrib.sqlalchemy.repository.SQLAlchemyAsyncRepository.delete_many`
-        - :meth:`~litestar.contrib.sqlalchemy.repository.SQLAlchemyAsyncRepository.get`
-        - :meth:`~litestar.contrib.sqlalchemy.repository.SQLAlchemyAsyncRepository.update`
+        - ``~litestar.contrib.sqlalchemy.repository.SQLAlchemyAsyncRepository.delete``
+        - ``~litestar.contrib.sqlalchemy.repository.SQLAlchemyAsyncRepository.delete_many``
+        - ``~litestar.contrib.sqlalchemy.repository.SQLAlchemyAsyncRepository.get``
+        - ``~litestar.contrib.sqlalchemy.repository.SQLAlchemyAsyncRepository.update``
 
-        - :meth:`~litestar.contrib.sqlalchemy.repository.SQLAlchemySyncRepository.delete`
-        - :meth:`~litestar.contrib.sqlalchemy.repository.SQLAlchemySyncRepository.delete_many`
-        - :meth:`~litestar.contrib.sqlalchemy.repository.SQLAlchemySyncRepository.get`
-        - :meth:`~litestar.contrib.sqlalchemy.repository.SQLAlchemySyncRepository.update`
+        - ``~litestar.contrib.sqlalchemy.repository.SQLAlchemySyncRepository.delete``
+        - ``~litestar.contrib.sqlalchemy.repository.SQLAlchemySyncRepository.delete_many``
+        - ``~litestar.contrib.sqlalchemy.repository.SQLAlchemySyncRepository.get``
+        - ``~litestar.contrib.sqlalchemy.repository.SQLAlchemySyncRepository.update``
 
     .. change:: OpenAPI: Support callable ``operation_id`` on route handlers
         :type: feature
@@ -253,14 +354,14 @@
 
             Available in:
 
-            - :meth:`~SQLAlchemyAsyncRepository.add`
-            - :meth:`~SQLAlchemyAsyncRepository.add_many`
-            - :meth:`~SQLAlchemyAsyncRepository.delete`
-            - :meth:`~SQLAlchemyAsyncRepository.delete_many`
-            - :meth:`~SQLAlchemyAsyncRepository.get_or_create`
-            - :meth:`~SQLAlchemyAsyncRepository.update`
-            - :meth:`~SQLAlchemyAsyncRepository.update_many`
-            - :meth:`~SQLAlchemyAsyncRepository.upsert`
+            - ``~SQLAlchemyAsyncRepository.add``
+            - ``~SQLAlchemyAsyncRepository.add_many``
+            - ``~SQLAlchemyAsyncRepository.delete``
+            - ``~SQLAlchemyAsyncRepository.delete_many``
+            - ``~SQLAlchemyAsyncRepository.get_or_create``
+            - ``~SQLAlchemyAsyncRepository.update``
+            - ``~SQLAlchemyAsyncRepository.update_many``
+            - ``~SQLAlchemyAsyncRepository.upsert``
 
             (and their sync equivalents)
 
@@ -270,10 +371,10 @@
 
             Available in:
 
-            - :meth:`~SQLAlchemyAsyncRepository.add`
-            - :meth:`~SQLAlchemyAsyncRepository.get_or_create`
-            - :meth:`~SQLAlchemyAsyncRepository.update`
-            - :meth:`~SQLAlchemyAsyncRepository.upsert`
+            - ``~SQLAlchemyAsyncRepository.add``
+            - ``~SQLAlchemyAsyncRepository.get_or_create``
+            - ``~SQLAlchemyAsyncRepository.update``
+            - ``~SQLAlchemyAsyncRepository.upsert``
 
             (and their sync equivalents)
 
@@ -284,18 +385,18 @@
 
             Available in:
 
-            - :meth:`~SQLAlchemyAsyncRepository.add`
-            - :meth:`~SQLAlchemyAsyncRepository.add_many`
-            - :meth:`~SQLAlchemyAsyncRepository.delete`
-            - :meth:`~SQLAlchemyAsyncRepository.delete_many`
-            - :meth:`~SQLAlchemyAsyncRepository.get`
-            - :meth:`~SQLAlchemyAsyncRepository.get_one`
-            - :meth:`~SQLAlchemyAsyncRepository.get_one_or_none`
-            - :meth:`~SQLAlchemyAsyncRepository.get_or_create`
-            - :meth:`~SQLAlchemyAsyncRepository.update`
-            - :meth:`~SQLAlchemyAsyncRepository.update_many`
-            - :meth:`~SQLAlchemyAsyncRepository.list`
-            - :meth:`~SQLAlchemyAsyncRepository.upsert`
+            - ``~SQLAlchemyAsyncRepository.add``
+            - ``~SQLAlchemyAsyncRepository.add_many``
+            - ``~SQLAlchemyAsyncRepository.delete``
+            - ``~SQLAlchemyAsyncRepository.delete_many``
+            - ``~SQLAlchemyAsyncRepository.get``
+            - ``~SQLAlchemyAsyncRepository.get_one``
+            - ``~SQLAlchemyAsyncRepository.get_one_or_none``
+            - ``~SQLAlchemyAsyncRepository.get_or_create``
+            - ``~SQLAlchemyAsyncRepository.update``
+            - ``~SQLAlchemyAsyncRepository.update_many``
+            - ``~SQLAlchemyAsyncRepository.list``
+            - ``~SQLAlchemyAsyncRepository.upsert``
 
             (and their sync equivalents)
 
@@ -332,7 +433,7 @@
 
 
         The ``_sentinel`` column of
-        :class:`~litestar.contrib.sqlalchemy.base.UUIDPrimaryKey` has been renamed to
+        ``~litestar.contrib.sqlalchemy.base.UUIDPrimaryKey`` has been renamed to
         ``sa_orm_sentinel``, to support Spanner, which does not support tables starting
         with ``_``.
 
@@ -341,8 +442,8 @@
         :pr: 1894
 
         A bug was fixed where
-        :attr:`~litestar.contrib.sqlalchemy.base.AuditColumns.created_at` and
-        :attr:`~litestar.contrib.sqlalchemy.base.AuditColumns.updated_at` would default
+        ``~litestar.contrib.sqlalchemy.base.AuditColumns.created_at`` and
+        ``~litestar.contrib.sqlalchemy.base.AuditColumns.updated_at`` would default
         to the :class:`~datetime.datetime` at initialization time, instead of the time
         of the update.
 
@@ -573,7 +674,7 @@
         :pr: 1683
 
         Add a new synchronous repository base class:
-        :class:`litestar.contrib.sqlalchemy.repository.SQLAlchemySyncRepository`,
+        ``litestar.contrib.sqlalchemy.repository.SQLAlchemySyncRepository``,
         which offer the same functionality as its asynchronous counterpart while
         operating on a synchronous :class:`sqlalchemy.orm.Session`.
 
@@ -618,7 +719,7 @@
         :pr: 1816
         :breaking:
 
-        A new timezone aware type :class:`litestar.contrib.sqlalchemy.types.DateTimeUTC`
+        A new timezone aware type ``litestar.contrib.sqlalchemy.types.DateTimeUTC``
         has been added, which enforces UTC timestamps stored in the database.
 
     .. change:: SQLAlchemy repository: Exclude unloaded columns in ``to_dict``
@@ -626,7 +727,7 @@
         :pr: 1802
 
         When exporting models using the
-        :meth:`~litestar.contrib.sqlalchemy.base.CommonTableAttributes.to_dict` method,
+        ``~litestar.contrib.sqlalchemy.base.CommonTableAttributes.to_dict`` method,
         unloaded columns will now always be excluded. This prevents implicit I/O via
         lazy loading, and errors when using an asynchronous session.
 
@@ -648,7 +749,7 @@
         :type: feature
         :pr: 1754, 1776
 
-        The :class:`~litestar.contrib.sqlalchemy.dto.SQLAlchemyDTO` now supports
+        The ``~litestar.contrib.sqlalchemy.dto.SQLAlchemyDTO`` now supports
         `hybrid attribute <https://docs.sqlalchemy.org/en/20/orm/extensions/hybrid.html>`_
         and `associationproxy <https://docs.sqlalchemy.org/en/20/orm/extensions/associationproxy.html>`_.
 
@@ -858,7 +959,7 @@
         :pr: 1676
 
         Migrations generated for models with a
-        :class:`~litestar.contrib.sqlalchemy.types.GUID` type would erroneously add a
+        ``~litestar.contrib.sqlalchemy.types.GUID`` type would erroneously add a
         ``length=16`` on the input.  Since this parameter is not defined in the type's
         the ``__init__`` method. This was fixed by adding the appropriate parameter to
         the type's signature.
@@ -1090,7 +1191,7 @@
         :type: feature
         :pr: 1657
 
-        :class:`~litestar.contrib.sqlalchemy.base.BigIntPrimaryKey` mixin, providing a
+        ``~litestar.contrib.sqlalchemy.base.BigIntPrimaryKey`` mixin, providing a
         ``BigInt`` primary key column, with a fallback to ``Integer`` for sqlite.
 
     .. change:: SQLAlchemy repository: Store GUIDs as binary on databases that don't have a native GUID type
@@ -1098,7 +1199,7 @@
         :pr: 1657
 
         On databases without native support for GUIDs,
-        :class:`~litestar.contrib.sqlalchemy.types.GUID` will now fall back to
+        ``~litestar.contrib.sqlalchemy.types.GUID`` will now fall back to
         ``BINARY(16)``.
 
     .. change:: Application lifespan context managers
@@ -1355,7 +1456,7 @@
         :pr: 1345
 
         Add a ``match_fields`` argument to
-        :meth:`SQLAlchemyAsyncRepository <litestar.contrib.sqlalchemy.repository.SQLAlchemyAsyncRepository.get_or_create>`.
+        ``litestar.contrib.sqlalchemy.repository.SQLAlchemyAsyncRepository.get_or_create``.
         This lets you lookup a model using a subset of the kwargs you've provided. If the remaining kwargs are different
         from the retrieved model's stored values, an update is performed.
 
@@ -1363,8 +1464,8 @@
         :type: feature
         :pr: 1345
 
-        Add new filters :class:`OrderBy <litestar.contrib.repository.filters.OrderBy>` and
-        :class:`SearchFilter <litestar.contrib.repository.filters.SearchFilter>`, providing ``ORDER BY ...`` and
+        Add new filters ``litestar.contrib.repository.filters.OrderBy`` and
+        ``litestar.contrib.repository.filters.SearchFilter``, providing ``ORDER BY ...`` and
         ``LIKE ...`` / ``ILIKE ...`` clauses respectively
 
     .. change:: SQLAlchemy repository: Rename ``SQLAlchemyRepository`` > ``SQLAlchemyAsyncRepository``
@@ -1373,7 +1474,7 @@
         :pr: 1345
 
         ``SQLAlchemyRepository`` has been renamed to
-        :class:`SQLAlchemyAsyncRepository <litestar.contrib.sqlalchemy.repository.SQLAlchemyAsyncRepository>`.
+        ``litestar.contrib.sqlalchemy.repository.SQLAlchemyAsyncRepository``.
 
 
     .. change:: DTO: Add ``AbstractDTOFactory`` and backends

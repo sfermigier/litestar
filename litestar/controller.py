@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from copy import deepcopy
 from functools import partial
+from operator import attrgetter
 from typing import TYPE_CHECKING, Any, Mapping, cast
 
 from litestar._layers.utils import narrow_response_cookies, narrow_response_headers
@@ -54,6 +55,7 @@ class Controller:
         "etag",
         "exception_handlers",
         "guards",
+        "include_in_schema",
         "middleware",
         "opt",
         "owner",
@@ -105,6 +107,8 @@ class Controller:
     """A map of handler functions to status codes and/or exception types."""
     guards: OptionalSequence[Guard]
     """A sequence of :class:`Guard <.types.Guard>` callables."""
+    include_in_schema: bool | EmptyType
+    """A boolean flag dictating whether  the route handler should be documented in the OpenAPI schema"""
     middleware: OptionalSequence[Middleware]
     """A sequence of :class:`Middleware <.types.Middleware>`."""
     opt: Mapping[str, Any] | None
@@ -167,6 +171,9 @@ class Controller:
         if not hasattr(self, "return_dto"):
             self.return_dto = Empty
 
+        if not hasattr(self, "include_in_schema"):
+            self.include_in_schema = Empty
+
         for key in self.__slots__:
             if not hasattr(self, key):
                 setattr(self, key, None)
@@ -186,13 +193,18 @@ class Controller:
         """
 
         route_handlers: list[BaseRouteHandler] = []
-
-        for field_name in set(dir(self)) - set(dir(Controller)):
-            if (attr := getattr(self, field_name, None)) and isinstance(attr, BaseRouteHandler):
-                route_handler = deepcopy(attr)
-                route_handler.fn.value = partial(route_handler.fn.value, self)
-                route_handler.owner = self
-                route_handlers.append(route_handler)
+        controller_names = set(dir(Controller))
+        self_handlers = [
+            getattr(self, name)
+            for name in dir(self)
+            if name not in controller_names and isinstance(getattr(self, name), BaseRouteHandler)
+        ]
+        self_handlers.sort(key=attrgetter("handler_id"))
+        for self_handler in self_handlers:
+            route_handler = deepcopy(self_handler)
+            route_handler.fn.value = partial(route_handler.fn.value, self)
+            route_handler.owner = self
+            route_handlers.append(route_handler)
 
         self.validate_route_handlers(route_handlers=route_handlers)
 
