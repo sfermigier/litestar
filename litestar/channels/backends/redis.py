@@ -68,6 +68,7 @@ class RedisChannelsPubSubBackend(RedisChannelsBackend):
         return self.__pub_sub
 
     async def on_startup(self) -> None:
+        # this method should not do anything in this case
         pass
 
     async def on_shutdown(self) -> None:
@@ -161,7 +162,7 @@ class RedisChannelsStreamBackend(RedisChannelsBackend):
 
     async def unsubscribe(self, channels: Iterable[str]) -> None:
         """Unsubscribe from ``channels``"""
-        self._subscribed_channels = self._subscribed_channels - set(channels)
+        self._subscribed_channels -= set(channels)
 
     async def publish(self, data: bytes, channels: Iterable[str]) -> None:
         """Publish ``data`` to ``channels``.

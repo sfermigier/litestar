@@ -90,7 +90,7 @@ class ClientSideSessionBackend(BaseSessionBackend["CookieBackendConfig"]):
         nonce = decoded[:NONCE_SIZE]
         aad_starts_from = decoded.find(AAD)
         associated_data = decoded[aad_starts_from:].replace(AAD, b"") if aad_starts_from != -1 else None
-        if associated_data and decode_json(associated_data)["expires_at"] > round(time.time()):
+        if associated_data and decode_json(value=associated_data)["expires_at"] > round(time.time()):
             encrypted_session = decoded[NONCE_SIZE:aad_starts_from]
             decrypted = self.aesgcm.decrypt(nonce, encrypted_session, associated_data=associated_data)
             return self.deserialize_data(decrypted)
@@ -186,8 +186,7 @@ class ClientSideSessionBackend(BaseSessionBackend["CookieBackendConfig"]):
         Returns:
             The session data
         """
-        cookie_keys = self.get_cookie_keys(connection)
-        if cookie_keys:
+        if cookie_keys := self.get_cookie_keys(connection):
             data = [connection.cookies[key].encode("utf-8") for key in cookie_keys]
             # If these exceptions occur, the session must remain empty so do nothing.
             with contextlib.suppress(InvalidTag, binascii.Error):

@@ -51,8 +51,7 @@ def traverse_route_map(
             path_params.append(component)
             continue
 
-        if i != len(path_components) - 1 or not current_node.children:
-            raise NotFoundException()
+        raise NotFoundException()
 
     if not current_node.asgi_handlers:
         raise NotFoundException()
@@ -113,7 +112,7 @@ def parse_path_to_route(
     path: str,
     plain_routes: set[str],
     root_node: RouteTrieNode,
-) -> tuple[ASGIApp, RouteHandlerType, str, dict]:
+) -> tuple[ASGIApp, RouteHandlerType, str, dict[str, Any]]:
     """Given a scope object, retrieve the asgi_handlers and is_mount boolean values from correct trie node.
 
     Args:
@@ -143,7 +142,9 @@ def parse_path_to_route(
             remaining_path = path[match.end() :]
             # since we allow regular handlers under static paths, we must validate that the request does not match
             # any such handler.
-            if not mount_node.children or not any(sub_route in path for sub_route in mount_node.children):  # type: ignore
+            if not mount_node.children or all(
+                sub_route not in path for sub_route in mount_node.children  # type: ignore
+            ):
                 asgi_app, handler = parse_node_handlers(node=mount_node, method=method)
                 remaining_path = remaining_path or "/"
                 if not mount_node.is_static:

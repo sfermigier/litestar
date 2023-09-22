@@ -46,7 +46,7 @@ ResponseExtractorField = Literal["status_code", "headers", "body", "cookies"]
 class ExtractedRequestData(TypedDict, total=False):
     """Dictionary representing extracted request data."""
 
-    body: Coroutine
+    body: Coroutine[Any, Any, Any]
     client: tuple[str, int]
     content_type: tuple[str, dict[str, str]]
     cookies: dict[str, str]
@@ -88,7 +88,7 @@ class ConnectionDataExtractor:
         obfuscate_headers: set[str] | None = None,
         parse_body: bool = False,
         parse_query: bool = False,
-    ):
+    ) -> None:
         """Initialize ``ConnectionDataExtractor``
 
         Args:
@@ -268,19 +268,17 @@ class ConnectionDataExtractor:
         Returns:
             Either the parsed request body or the raw byte-string.
         """
-        if request.method != HttpMethod.GET:
-            if not self.parse_body:
-                return await request.body()
-            request_encoding_type = request.content_type[0]
-            if request_encoding_type == RequestEncodingType.JSON:
-                return await request.json()
-            form_data = await request.form()
-            if request_encoding_type == RequestEncodingType.URL_ENCODED:
-                return dict(form_data)
-            return {
-                key: repr(value) if isinstance(value, UploadFile) else value for key, value in form_data.multi_items()
-            }
-        return None
+        if request.method == HttpMethod.GET:
+            return None
+        if not self.parse_body:
+            return await request.body()
+        request_encoding_type = request.content_type[0]
+        if request_encoding_type == RequestEncodingType.JSON:
+            return await request.json()
+        form_data = await request.form()
+        if request_encoding_type == RequestEncodingType.URL_ENCODED:
+            return dict(form_data)
+        return {key: repr(value) if isinstance(value, UploadFile) else value for key, value in form_data.multi_items()}
 
 
 class ExtractedResponseData(TypedDict, total=False):
@@ -305,7 +303,7 @@ class ResponseDataExtractor:
         extract_status_code: bool = True,
         obfuscate_cookies: set[str] | None = None,
         obfuscate_headers: set[str] | None = None,
-    ):
+    ) -> None:
         """Initialize ``ResponseDataExtractor`` with options.
 
         Args:
@@ -406,10 +404,9 @@ class ResponseDataExtractor:
         Returns:
             The Response's cookies dict.
         """
-        cookie_string = ";".join(
+        if cookie_string := ";".join(
             [x[1].decode("latin-1") for x in filter(lambda x: x[0].lower() == b"set-cookie", messages[0]["headers"])]
-        )
-        if cookie_string:
+        ):
             parsed_cookies = parse_cookie_string(cookie_string)
             return _obfuscate(parsed_cookies, self.obfuscate_cookies) if self.obfuscate_cookies else parsed_cookies
         return {}

@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from litestar.openapi.spec.xml import XML
     from litestar.types import DataclassProtocol
 
-__all__ = ("Schema",)
+__all__ = ("Schema", "SchemaDataContainer")
 
 
 def _recursive_hash(value: Hashable | Sequence | Mapping | DataclassProtocol | type[DataclassProtocol]) -> int:
@@ -34,9 +34,7 @@ def _recursive_hash(value: Hashable | Sequence | Mapping | DataclassProtocol | t
         return hash_value
     if is_non_string_sequence(value):
         return sum(_recursive_hash(v) for v in value)
-    if isinstance(value, Hashable):
-        return hash(value)
-    return 0
+    return hash(value) if isinstance(value, Hashable) else 0
 
 
 @dataclass

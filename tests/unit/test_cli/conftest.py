@@ -25,6 +25,15 @@ from . import (
 if TYPE_CHECKING:
     from unittest.mock import MagicMock
 
+    from litestar.cli._utils import LitestarGroup
+
+
+@pytest.fixture()
+def root_command() -> LitestarGroup:
+    import litestar.cli.main
+
+    return cast("LitestarGroup", importlib.reload(litestar.cli.main).litestar_group)
+
 
 @pytest.fixture
 def patch_autodiscovery_paths(request: FixtureRequest) -> Callable[[list[str]], None]:
@@ -88,7 +97,7 @@ def create_app_file(tmp_project_dir: Path, request: FixtureRequest) -> CreateApp
         tmp_app_file.write_text(content or APP_FILE_CONTENT)
 
         if directory:
-            request.addfinalizer(lambda: rmtree(directory))  # type: ignore[arg-type]
+            request.addfinalizer(lambda: rmtree(directory))
             request.addfinalizer(
                 lambda: _purge_module(
                     [directory, _path_to_dotted_path(tmp_app_file.relative_to(Path.cwd()))], tmp_app_file  # type: ignore[list-item]

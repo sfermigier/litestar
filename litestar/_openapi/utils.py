@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from litestar.types import Method
 
 
-__all__ = ("default_operation_id_creator",)
+__all__ = ("default_operation_id_creator", "SEPARATORS_CLEANUP_PATTERN")
 
 SEPARATORS_CLEANUP_PATTERN = re.compile(r"[!#$%&'*+\-.^_`|~:]+")
 
@@ -39,7 +39,7 @@ def default_operation_id_creator(
     )
 
     components_namespace = ""
-    for component in (c if not isinstance(c, PathParameterDefinition) else c.name for c in path_components):
+    for component in (c.name if isinstance(c, PathParameterDefinition) else c for c in path_components):
         if component.title() not in components_namespace:
             components_namespace += component.title()
 

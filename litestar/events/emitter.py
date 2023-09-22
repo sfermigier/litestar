@@ -5,6 +5,7 @@ import sys
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from contextlib import AsyncExitStack
+from functools import partial
 from typing import TYPE_CHECKING, Any, Sequence
 
 if sys.version_info < (3, 9):
@@ -34,7 +35,7 @@ class BaseEventEmitterBackend(AsyncContextManager["BaseEventEmitterBackend"], AB
 
     listeners: defaultdict[str, set[EventListener]]
 
-    def __init__(self, listeners: Sequence[EventListener]):
+    def __init__(self, listeners: Sequence[EventListener]) -> None:
         """Create an event emitter instance.
 
         Args:
@@ -65,7 +66,7 @@ class SimpleEventEmitter(BaseEventEmitterBackend):
 
     __slots__ = ("_queue", "_exit_stack", "_receive_stream", "_send_stream")
 
-    def __init__(self, listeners: Sequence[EventListener]):
+    def __init__(self, listeners: Sequence[EventListener]) -> None:
         """Create an event emitter instance.
 
         Args:
@@ -78,15 +79,17 @@ class SimpleEventEmitter(BaseEventEmitterBackend):
 
     @staticmethod
     async def _worker(receive_stream: MemoryObjectReceiveStream) -> None:
-        """Worker that runs in a separate task and continuously pulls events from asyncio queue.
+        """Run items from ``receive_stream`` in a task group.
 
         Returns:
             None
         """
-        async with receive_stream:
+        async with receive_stream, anyio.create_task_group() as task_group:
             async for item in receive_stream:
                 fn, args, kwargs = item
-                await fn(*args, **kwargs)
+                if kwargs:
+                    fn = partial(fn, **kwargs)
+                task_group.start_soon(fn, *args)
 
     async def __aenter__(self) -> SimpleEventEmitter:
         self._exit_stack = AsyncExitStack()

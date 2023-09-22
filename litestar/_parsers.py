@@ -21,7 +21,7 @@ def parse_url_encoded_form_data(encoded_data: bytes) -> dict[str, Any]:
     Returns:
         A parsed dict.
     """
-    return parse_url_encoded_dict(encoded_data)
+    return parse_url_encoded_dict(qs=encoded_data, parse_numbers=False)
 
 
 @lru_cache(1024)
@@ -47,10 +47,14 @@ def parse_cookie_string(cookie_string: str) -> dict[str, str]:
     Returns:
         A string keyed dictionary of values
     """
-    output: dict[str, str] = {}
     cookies = [cookie.split("=", 1) if "=" in cookie else ("", cookie) for cookie in cookie_string.split(";")]
-    for k, v in filter(lambda x: x[0] or x[1], ((k.strip(), v.strip()) for k, v in cookies)):
-        output[k] = unquote(unquote_cookie(v))
+    output: dict[str, str] = {
+        k: unquote(unquote_cookie(v))
+        for k, v in filter(
+            lambda x: x[0] or x[1],
+            ((k.strip(), v.strip()) for k, v in cookies),
+        )
+    }
     return output
 
 

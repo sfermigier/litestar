@@ -44,7 +44,9 @@ class HTTPRoute(BaseRoute):
         methods = list(chain.from_iterable([route_handler.http_methods for route_handler in route_handlers]))
         if "OPTIONS" not in methods:
             methods.append("OPTIONS")
-            route_handlers.append(self.create_options_handler(path))
+            options_handler = self.create_options_handler(path)
+            options_handler.owner = route_handlers[0].owner
+            route_handlers.append(options_handler)
 
         self.route_handlers = route_handlers
         self.route_handler_map: dict[Method, tuple[HTTPRouteHandler, KwargsModel]] = {}
@@ -180,8 +182,8 @@ class HTTPRoute(BaseRoute):
             if "data" in kwargs:
                 try:
                     kwargs["data"] = await kwargs["data"]
-                except SerializationException as exc:
-                    raise ClientException(str(exc)) from exc
+                except SerializationException as e:
+                    raise ClientException(str(e)) from e
 
             if "body" in kwargs:
                 kwargs["body"] = await kwargs["body"]
@@ -195,16 +197,15 @@ class HTTPRoute(BaseRoute):
 
         if cleanup_group:
             async with cleanup_group:
-                if route_handler.has_sync_callable:
-                    data = route_handler.fn.value(**parsed_kwargs)
-                else:
-                    data = await route_handler.fn.value(**parsed_kwargs)
-
+                data = (
+                    route_handler.fn.value(**parsed_kwargs)
+                    if route_handler.has_sync_callable
+                    else await route_handler.fn.value(**parsed_kwargs)
+                )
+        elif route_handler.has_sync_callable:
+            data = route_handler.fn.value(**parsed_kwargs)
         else:
-            if route_handler.has_sync_callable:
-                data = route_handler.fn.value(**parsed_kwargs)
-            else:
-                data = await route_handler.fn.value(**parsed_kwargs)
+            data = await route_handler.fn.value(**parsed_kwargs)
 
         return data, cleanup_group
 

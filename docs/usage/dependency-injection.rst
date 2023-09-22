@@ -66,8 +66,7 @@ Dependencies can be either callables - sync or async functions, methods, or clas
 .. include:: /admonitions/sync-to-thread-info.rst
 
 
-
-Pre-requisites and Scope
+Pre-requisites and scope
 ------------------------
 
 The pre-requisites for dependency injection are these:
@@ -172,21 +171,20 @@ and committing otherwise.
    re-raise
 
 
-Dependency Kwargs
------------------
+Dependency keyword arguments
+----------------------------
 
 As stated above dependencies can receive kwargs but no args. The reason for this is that dependencies are parsed using
 the same mechanism that parses route handler functions, and they too - like route handler functions, can have data
 injected into them.
 
 In fact, you can inject the same data that you
-can :ref:`inject into route handlers <usage/route-handlers:handler function kwargs>`.
+can :ref:`inject into route handlers <usage/routing/handlers:"reserved" keyword arguments>`.
 
 .. code-block:: python
 
    from litestar import Controller, patch
    from litestar.di import Provide
-   from litestar.partial import Partial
    from pydantic import BaseModel, UUID4
 
 
@@ -204,7 +202,7 @@ can :ref:`inject into route handlers <usage/route-handlers:handler function kwar
        dependencies = {"user": Provide(retrieve_db_user)}
 
        @patch(path="/{user_id:uuid}")
-       async def update_user(self, data: Partial[User], user: User) -> User:
+       async def get_user(self, user: User) -> User:
            ...
 
 In the above example we have a ``User`` model that we are persisting into a db. The model is fetched using the helper
@@ -215,8 +213,8 @@ in turn makes it available as a kwarg in the ``update_user`` method.
 
 
 
-Overriding Dependencies
------------------------
+Dependency overrides
+--------------------
 
 Because dependencies are declared at each level of the app using a string keyed dictionary, overriding dependencies is
 very simple:
@@ -252,8 +250,8 @@ The lower scoped route handler function declares a dependency with the same key 
 controller. The lower scoped dependency therefore overrides the higher scoped one.
 
 
-The Provide Class
------------------
+The ``Provide`` class
+----------------------
 
 The :class:`Provide <.di.Provide>` class is a wrapper used for dependency injection. To inject a callable you must wrap
 it in ``Provide``:
@@ -290,8 +288,8 @@ it in ``Provide``:
 
 
 
-Using dependencies in dependencies
------------------------------------
+Dependencies within dependencies
+--------------------------------
 
 You can inject dependencies into other dependencies - exactly like you would into regular functions.
 
@@ -325,11 +323,11 @@ You can inject dependencies into other dependencies - exactly like you would int
 
 .. note::
 
-   The same rules for `overriding dependencies`_ apply here as well.
+   The rules for `dependency overrides`_ apply here as well.
 
 
-The Dependency Function
------------------------
+The ``Dependency`` function
+----------------------------
 
 Dependency validation
 ~~~~~~~~~~~~~~~~~~~~~
@@ -364,7 +362,7 @@ Depending on your application design, it is possible to have a dependency declar
 :class:`Provide <.di.Provide>` function that has a default value. If the dependency isn't provided for the route, the
 default should be used by the function.
 
-.. literalinclude:: /examples/dependency_injection/dependency_default_value_no_dependency_fn.py
+.. literalinclude:: /examples/dependency_injection/dependency_with_default.py
     :caption: Dependency with default value
     :language: python
 
@@ -375,7 +373,7 @@ parameter.
 
 By declaring the parameter to be a dependency, Litestar knows to exclude it from the docs:
 
-.. literalinclude:: /examples/dependency_injection/dependency_default_value_with_dependency_fn.py
+.. literalinclude:: /examples/dependency_injection/dependency_with_dependency_fn_and_default.py
     :caption: Dependency with default value
     :language: python
 

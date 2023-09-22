@@ -30,7 +30,7 @@ class TodoItem(Base):
 async def db_connection(app: Litestar) -> AsyncGenerator[None, None]:
     engine = getattr(app.state, "engine", None)
     if engine is None:
-        engine = create_async_engine("sqlite+aiosqlite:///todo.sqlite", echo=True)
+        engine = create_async_engine("sqlite+aiosqlite:///todo.sqlite")
         app.state.engine = engine
 
     try:
@@ -51,7 +51,7 @@ async def provide_transaction(state: State) -> AsyncGenerator[AsyncSession, None
             raise ClientException(
                 status_code=HTTP_409_CONFLICT,
                 detail=str(exc),
-            )
+            ) from exc
 
 
 def serialize_todo(todo: TodoItem) -> TodoType:
@@ -63,8 +63,8 @@ async def get_todo_by_title(todo_name, session: AsyncSession) -> TodoItem:
     result = await session.execute(query)
     try:
         return result.scalar_one()
-    except NoResultFound:
-        raise NotFoundException(detail=f"TODO {todo_name!r} not found")
+    except NoResultFound as e:
+        raise NotFoundException(detail=f"TODO {todo_name!r} not found") from e
 
 
 async def get_todo_list(done: Optional[bool], session: AsyncSession) -> List[TodoItem]:

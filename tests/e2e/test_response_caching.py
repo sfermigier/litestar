@@ -13,7 +13,7 @@ from litestar.stores.memory import MemoryStore
 from litestar.testing import TestClient, create_test_client
 
 if TYPE_CHECKING:
-    from freezegun.api import FrozenDateTimeFactory
+    from time_machine import Coordinates
 
     from litestar import Response
 
@@ -52,25 +52,25 @@ def test_default_cache_response(sync_to_thread: bool, mock: MagicMock) -> None:
         assert mock.call_count == 1
 
 
-def test_handler_expiration(mock: MagicMock, frozen_datetime: "FrozenDateTimeFactory") -> None:
+def test_handler_expiration(mock: MagicMock, frozen_datetime: "Coordinates") -> None:
     @get("/cached-local", cache=10)
     async def handler() -> str:
         return mock()  # type: ignore[no-any-return]
 
     with create_test_client([handler], after_request=after_request_handler) as client:
         first_response = client.get("/cached-local")
-        frozen_datetime.tick(delta=timedelta(seconds=5))
+        frozen_datetime.shift(delta=timedelta(seconds=5))
         second_response = client.get("/cached-local")
         assert first_response.headers["unique-identifier"] == second_response.headers["unique-identifier"]
         assert mock.call_count == 1
 
-        frozen_datetime.tick(delta=timedelta(seconds=11))
+        frozen_datetime.shift(delta=timedelta(seconds=11))
         third_response = client.get("/cached-local")
         assert first_response.headers["unique-identifier"] != third_response.headers["unique-identifier"]
         assert mock.call_count == 2
 
 
-def test_default_expiration(mock: MagicMock, frozen_datetime: "FrozenDateTimeFactory") -> None:
+def test_default_expiration(mock: MagicMock, frozen_datetime: "Coordinates") -> None:
     @get("/cached-default", cache=True)
     async def handler() -> str:
         return mock()  # type: ignore[no-any-return]
@@ -83,7 +83,7 @@ def test_default_expiration(mock: MagicMock, frozen_datetime: "FrozenDateTimeFac
         assert first_response.headers["unique-identifier"] == second_response.headers["unique-identifier"]
         assert mock.call_count == 1
 
-        frozen_datetime.tick(delta=timedelta(seconds=1))
+        frozen_datetime.shift(delta=timedelta(seconds=1))
         third_response = client.get("/cached-default")
         assert first_response.headers["unique-identifier"] != third_response.headers["unique-identifier"]
         assert mock.call_count == 2
@@ -128,7 +128,7 @@ def test_cache_forever(memory_store: MemoryStore) -> None:
 @pytest.mark.parametrize("sync_to_thread", (True, False))
 async def test_custom_cache_key(sync_to_thread: bool, anyio_backend: str, mock: MagicMock) -> None:
     def custom_cache_key_builder(request: Request) -> str:
-        return request.url.path + ":::cached"
+        return f"{request.url.path}:::cached"
 
     @get("/cached", sync_to_thread=sync_to_thread, cache=True, cache_key_builder=custom_cache_key_builder)
     def handler() -> str:

@@ -53,7 +53,7 @@ class CORSConfig:
         self.allow_headers = [v.lower() for v in self.allow_headers]
 
     @cached_property
-    def allowed_origins_regex(self) -> Pattern:
+    def allowed_origins_regex(self) -> Pattern[str]:
         """Get or create a compiled regex for allowed origins.
 
         Returns:
@@ -112,9 +112,9 @@ class CORSConfig:
         if self.allow_methods:
             headers["Access-Control-Allow-Methods"] = ", ".join(
                 sorted(
-                    set(self.allow_methods)
-                    if not self.is_allow_all_methods
-                    else {"DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"}
+                    {"DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"}
+                    if self.is_allow_all_methods
+                    else set(self.allow_methods)
                 )
             )
         return headers

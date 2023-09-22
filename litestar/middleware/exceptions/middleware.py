@@ -13,6 +13,7 @@ from litestar.enums import MediaType, ScopeType
 from litestar.exceptions import WebSocketException
 from litestar.middleware.cors import CORSMiddleware
 from litestar.middleware.exceptions._debug_response import create_debug_response
+from litestar.serialization import encode_json
 from litestar.status_codes import HTTP_500_INTERNAL_SERVER_ERROR
 
 __all__ = ("ExceptionHandlerMiddleware", "ExceptionResponseContent", "create_exception_response")
@@ -55,15 +56,17 @@ def get_exception_handler(exception_handlers: ExceptionHandlersMap, exc: Excepti
     """
     if not exception_handlers:
         return None
+
     status_code: int | None = getattr(exc, "status_code", None)
     if status_code and (exception_handler := exception_handlers.get(status_code)):
         return exception_handler
-    for cls in getmro(type(exc)):
-        if cls in exception_handlers:
-            return exception_handlers[cast("Type[Exception]", cls)]
-    if not hasattr(exc, "status_code") and HTTP_500_INTERNAL_SERVER_ERROR in exception_handlers:
-        return exception_handlers[HTTP_500_INTERNAL_SERVER_ERROR]
-    return None
+
+    return next(
+        (exception_handlers[cast("Type[Exception]", cls)] for cls in getmro(type(exc)) if cls in exception_handlers),
+        exception_handlers[HTTP_500_INTERNAL_SERVER_ERROR]
+        if not hasattr(exc, "status_code") and HTTP_500_INTERNAL_SERVER_ERROR in exception_handlers
+        else None,
+    )
 
 
 @dataclass
@@ -74,6 +77,8 @@ class ExceptionResponseContent:
     """Exception status code."""
     detail: str
     """Exception details or message."""
+    media_type: MediaType | str
+    """Media type of the response."""
     headers: dict[str, str] | None = field(default=None)
     """Headers to attach to the response."""
     extra: dict[str, Any] | list[Any] | None = field(default=None)
@@ -87,15 +92,20 @@ class ExceptionResponseContent:
         """
         from litestar.response import Response
 
+        content: Any = {k: v for k, v in asdict(self).items() if k not in ("headers", "media_type") and v is not None}
+
+        if self.media_type != MediaType.JSON:
+            content = encode_json(content)
+
         return Response(
-            content={k: v for k, v in asdict(self).items() if k != "headers" and v is not None},
+            content=content,
             headers=self.headers,
             status_code=self.status_code,
-            media_type=MediaType.JSON,
+            media_type=self.media_type,
         )
 
 
-def create_exception_response(exc: Exception) -> Response:
+def create_exception_response(request: Request[Any, Any, Any], exc: Exception) -> Response:
     """Construct a response from an exception.
 
     Notes:
@@ -104,6 +114,7 @@ def create_exception_response(exc: Exception) -> Response:
           response status is ``HTTP_500_INTERNAL_SERVER_ERROR``.
 
     Args:
+        request: The request that triggered the exception.
         exc: An exception.
 
     Returns:
@@ -115,11 +126,17 @@ def create_exception_response(exc: Exception) -> Response:
     else:
         detail = getattr(exc, "detail", repr(exc))
 
+    try:
+        media_type = request.route_handler.media_type
+    except (KeyError, AttributeError):
+        media_type = MediaType.JSON
+
     content = ExceptionResponseContent(
         status_code=status_code,
         detail=detail,
         headers=getattr(exc, "headers", None),
         extra=getattr(exc, "extra", None),
+        media_type=media_type,
     )
     return content.to_response()
 
@@ -217,6 +234,7 @@ class ExceptionHandlerMiddleware:
         else:
             code = 4000 + getattr(exc, "status_code", HTTP_500_INTERNAL_SERVER_ERROR)
             reason = getattr(exc, "detail", repr(exc))
+
         event: WebSocketCloseEvent = {"type": "websocket.close", "code": code, "reason": reason}
         await send(event)
 
@@ -233,7 +251,7 @@ class ExceptionHandlerMiddleware:
         status_code = getattr(exc, "status_code", HTTP_500_INTERNAL_SERVER_ERROR)
         if status_code == HTTP_500_INTERNAL_SERVER_ERROR and self.debug:
             return create_debug_response(request=request, exc=exc)
-        return create_exception_response(exc)
+        return create_exception_response(request=request, exc=exc)
 
     def handle_exception_logging(self, logger: Logger, logging_config: BaseLoggingConfig, scope: Scope) -> None:
         """Handle logging - if the litestar app has a logging config in place.

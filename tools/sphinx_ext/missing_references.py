@@ -6,7 +6,7 @@ import inspect
 import re
 from functools import cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Any, Generator
 
 from docutils.utils import get_source_line
 
@@ -54,9 +54,7 @@ def on_warn_missing_reference(app: Sphinx, domain: str, node: Node) -> bool | No
     attributes = node.attributes  # type: ignore[attr-defined]
     target = attributes["reftarget"]
 
-    reference_target_source_obj = attributes.get("py:class", attributes.get("py:meth", attributes.get("py:func")))
-
-    if reference_target_source_obj:
+    if reference_target_source_obj := attributes.get("py:class", attributes.get("py:meth", attributes.get("py:func"))):
         global_names = get_module_global_imports(attributes["py:module"], reference_target_source_obj)
 
         if target in global_names:
@@ -85,7 +83,7 @@ def on_warn_missing_reference(app: Sphinx, domain: str, node: Node) -> bool | No
     return None
 
 
-def on_missing_reference(app: Sphinx, env: BuildEnvironment, node: pending_xref, contnode: Element):
+def on_missing_reference(app: Sphinx, env: BuildEnvironment, node: pending_xref, contnode: Element) -> Any:
     if not hasattr(node, "attributes"):
         return None
 

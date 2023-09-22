@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 import pytest
 from typing_extensions import Annotated
 
-from litestar import Controller, Litestar, get, post
+from litestar import Controller, Litestar, MediaType, get, post
 from litestar.di import Provide
 from litestar.exceptions import ImproperlyConfiguredException
 from litestar.params import Body, Dependency, Parameter
@@ -11,13 +11,12 @@ from litestar.status_codes import HTTP_200_OK, HTTP_201_CREATED, HTTP_400_BAD_RE
 from litestar.testing import create_test_client
 
 
-@pytest.mark.parametrize("backend", ("pydantic", "attrs"))
-def test_parsing_of_parameter_as_annotated(backend: Any) -> None:
+def test_parsing_of_parameter_as_annotated() -> None:
     @get(path="/")
     def handler(param: Annotated[str, Parameter(min_length=1)]) -> str:
         return param
 
-    with create_test_client(handler, _preferred_validation_backend=backend) as client:
+    with create_test_client(handler) as client:
         response = client.get("/")
         assert response.status_code == HTTP_400_BAD_REQUEST
 
@@ -25,13 +24,12 @@ def test_parsing_of_parameter_as_annotated(backend: Any) -> None:
         assert response.status_code == HTTP_200_OK
 
 
-@pytest.mark.parametrize("backend", ("pydantic", "attrs"))
-def test_parsing_of_parameter_as_default_value(backend: Any) -> None:
+def test_parsing_of_parameter_as_default() -> None:
     @get(path="/")
     def handler(param: str = Parameter(min_length=1)) -> str:
         return param
 
-    with create_test_client(handler, _preferred_validation_backend=backend) as client:
+    with create_test_client(handler) as client:
         response = client.get("/?param=")
         assert response.status_code == HTTP_400_BAD_REQUEST
 
@@ -39,13 +37,12 @@ def test_parsing_of_parameter_as_default_value(backend: Any) -> None:
         assert response.status_code == HTTP_200_OK
 
 
-@pytest.mark.parametrize("backend", ("pydantic", "attrs"))
-def test_parsing_of_body_as_annotated(backend: Any) -> None:
+def test_parsing_of_body_as_annotated() -> None:
     @post(path="/")
     def handler(data: Annotated[List[str], Body(min_items=1)]) -> List[str]:
         return data
 
-    with create_test_client(handler, _preferred_validation_backend=backend) as client:
+    with create_test_client(handler) as client:
         response = client.post("/", json=[])
         assert response.status_code == HTTP_400_BAD_REQUEST
 
@@ -53,13 +50,12 @@ def test_parsing_of_body_as_annotated(backend: Any) -> None:
         assert response.status_code == HTTP_201_CREATED
 
 
-@pytest.mark.parametrize("backend", ("pydantic", "attrs"))
-def test_parsing_of_body_as_default_value(backend: Any) -> None:
+def test_parsing_of_body_as_default() -> None:
     @post(path="/")
     def handler(data: List[str] = Body(min_items=1)) -> List[str]:
         return data
 
-    with create_test_client(handler, _preferred_validation_backend=backend) as client:
+    with create_test_client(handler) as client:
         response = client.post("/", json=[])
         assert response.status_code == HTTP_400_BAD_REQUEST
 
@@ -67,24 +63,22 @@ def test_parsing_of_body_as_default_value(backend: Any) -> None:
         assert response.status_code == HTTP_201_CREATED
 
 
-@pytest.mark.parametrize("backend", ("pydantic", "attrs"))
-def test_parsing_of_dependency_as_annotated(backend: Any) -> None:
+def test_parsing_of_dependency_as_annotated() -> None:
     @get(path="/", dependencies={"dep": Provide(lambda: None, sync_to_thread=False)})
     def handler(dep: Annotated[int, Dependency(skip_validation=True)]) -> int:
         return dep
 
-    with create_test_client(handler, _preferred_validation_backend=backend) as client:
+    with create_test_client(handler) as client:
         response = client.get("/")
         assert response.text == "null"
 
 
-@pytest.mark.parametrize("backend", ("pydantic", "attrs"))
-def test_parsing_of_dependency_as_default_value(backend: Any) -> None:
+def test_parsing_of_dependency_as_default() -> None:
     @get(path="/", dependencies={"dep": Provide(lambda: None, sync_to_thread=False)})
     def handler(dep: int = Dependency(skip_validation=True)) -> int:
         return dep
 
-    with create_test_client(handler, _preferred_validation_backend=backend) as client:
+    with create_test_client(handler) as client:
         response = client.get("/")
         assert response.text == "null"
 
@@ -173,7 +167,7 @@ def test_dependency_skip_validation() -> None:
         assert skipped_resp.json() == {"value": "str"}
 
 
-def test_dependency_skip_validation_with_default_value() -> None:
+def test_dependency_skip_validation_with_default() -> None:
     @get("/skipped")
     def skipped(value: int = Dependency(default=1, skip_validation=True)) -> Dict[str, int]:
         return {"value": value}
@@ -209,3 +203,19 @@ def test_dependency_nested_sequence() -> None:
         assert resp.json() == ["a", "b", "c"]
         resp = client.get("/obj", params={"seq": seq})
         assert resp.json() == ["a", "b", "c"]
+
+
+def test_regex_validation() -> None:
+    # https://github.com/litestar-org/litestar/issues/1860
+    @get(path="/val_regex", media_type=MediaType.TEXT)
+    async def regex_val(text: Annotated[str, Parameter(title="a or b", pattern="[a|b]")]) -> str:
+        return f"str: {text}"
+
+    with create_test_client(route_handlers=[regex_val]) as client:
+        for letter in ("a", "b"):
+            response = client.get(f"/val_regex?text={letter}")
+            assert response.status_code == HTTP_200_OK
+            assert response.text == f"str: {letter}"
+
+        response = client.get("/val_regex?text=c")
+        assert response.status_code == HTTP_400_BAD_REQUEST

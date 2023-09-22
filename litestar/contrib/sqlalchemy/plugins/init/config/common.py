@@ -52,7 +52,7 @@ class GenericSessionConfig(Generic[ConnectionT, EngineT, SessionT]):
     bind: EngineT | ConnectionT | None | EmptyType = Empty
     """The :class:`Engine <sqlalchemy.engine.Engine>` or :class:`Connection <sqlalchemy.engine.Connection>` that new
     :class:`Session <sqlalchemy.orm.Session>` objects will be bound to."""
-    binds: dict[type[Any] | Mapper[Any] | TableClause | str, EngineT | ConnectionT] | None | EmptyType = Empty
+    binds: dict[type[Any] | Mapper | TableClause | str, EngineT | ConnectionT] | None | EmptyType = Empty
     """A dictionary which may specify any number of :class:`Engine <sqlalchemy.engine.Engine>` or :class:`Connection
     <sqlalchemy.engine.Connection>` objects as the source of connectivity for SQL operations on a per-entity basis. The
     keys of the dictionary consist of any series of mapped classes, arbitrary Python classes that are bases for mapped
@@ -90,7 +90,7 @@ class GenericSQLAlchemyConfig(Generic[EngineT, SessionT, SessionMakerT]):
     """Callable that creates an :class:`AsyncEngine <sqlalchemy.ext.asyncio.AsyncEngine>` instance or instance of its
     subclass.
     """
-    session_config: GenericSessionConfig
+    session_config: GenericSessionConfig[Any, Any, Any]
     """Configuration options for either the :class:`async_sessionmaker <sqlalchemy.ext.asyncio.async_sessionmaker>`
     or :class:`sessionmaker <sqlalchemy.orm.sessionmaker>`.
     """

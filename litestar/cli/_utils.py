@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import importlib
 import inspect
 import sys
@@ -12,7 +13,7 @@ from typing import TYPE_CHECKING, Any, Callable, Generator, Iterable, Sequence, 
 
 from rich import get_console
 from rich.table import Table
-from typing_extensions import Concatenate, ParamSpec
+from typing_extensions import Concatenate, ParamSpec, get_type_hints
 
 from litestar import Litestar, __version__
 from litestar.middleware import DefineMiddleware
@@ -26,7 +27,7 @@ try:
 except ImportError:
     pass
 
-if TYPE_CHECKING or not RICH_CLICK_INSTALLED:
+if TYPE_CHECKING or not RICH_CLICK_INSTALLED:  # pragma: no cover
     from click import ClickException, Command, Context, Group, pass_context
 else:
     from rich_click import ClickException, Context, pass_context
@@ -100,13 +101,10 @@ class LitestarEnv:
         if cwd_str_path not in sys.path:
             sys.path.append(cwd_str_path)
 
-        try:
+        with contextlib.suppress(ImportError):
             import dotenv
 
             dotenv.load_dotenv()
-        except ImportError:
-            pass
-
         app_path = app_path or getenv("LITESTAR_APP")
         if app_path:
             console.print(f"Using Litestar app from env: [bright_blue]{app_path!r}")
@@ -157,7 +155,7 @@ class LitestarGroup(Group):
         name: str | None = None,
         commands: dict[str, Command] | Sequence[Command] | None = None,
         **attrs: Any,
-    ):
+    ) -> None:
         """Init ``LitestarGroup``"""
         self.group_class = LitestarGroup
         super().__init__(name=name, commands=commands, **attrs)
@@ -196,14 +194,48 @@ class LitestarExtensionGroup(LitestarGroup):
         name: str | None = None,
         commands: dict[str, Command] | Sequence[Command] | None = None,
         **attrs: Any,
-    ):
+    ) -> None:
         """Init ``LitestarExtensionGroup``"""
         super().__init__(name=name, commands=commands, **attrs)
+        self._prepare_done = False
 
         for entry_point in entry_points(group="litestar.commands"):
             command = entry_point.load()
             _wrap_commands([command])
             self.add_command(command, entry_point.name)
+
+    def _prepare(self, ctx: Context) -> None:
+        if self._prepare_done:
+            return
+
+        if isinstance(ctx.obj, LitestarEnv):
+            env: LitestarEnv | None = ctx.obj
+        else:
+            try:
+                env = ctx.obj = LitestarEnv.from_env(ctx.params.get("app_path"))
+            except LitestarCLIException:
+                env = None
+
+        if env:
+            for plugin in env.app.plugins.cli:
+                plugin.on_cli_init(self)
+
+        self._prepare_done = True
+
+    def make_context(
+        self,
+        info_name: str | None,
+        args: list[str],
+        parent: Context | None = None,
+        **extra: Any,
+    ) -> Context:
+        ctx = super().make_context(info_name, args, parent, **extra)
+        self._prepare(ctx)
+        return ctx
+
+    def list_commands(self, ctx: Context) -> list[str]:
+        self._prepare(ctx)
+        return super().list_commands(ctx)
 
 
 def _inject_args(func: Callable[P, T]) -> Callable[Concatenate[Context, P], T]:
@@ -230,7 +262,7 @@ def _inject_args(func: Callable[P, T]) -> Callable[Concatenate[Context, P], T]:
 
         return func(*args, **kwargs)
 
-    return pass_context(wrapped)
+    return pass_context(wrapped)  # pyright: ignore
 
 
 def _wrap_commands(commands: Iterable[Command]) -> None:
@@ -307,7 +339,9 @@ def _autodiscover_app(cwd: Path) -> LoadedApp:
         for attr, value in module.__dict__.items():
             if not callable(value):
                 continue
-            return_annotation = getattr(value, "__annotations__", {}).get("return")
+            return_annotation = (
+                get_type_hints(value, include_extras=True).get("return") if hasattr(value, "__annotations__") else None
+            )
             if not return_annotation:
                 continue
             if return_annotation in ("Litestar", Litestar):
@@ -320,9 +354,7 @@ def _autodiscover_app(cwd: Path) -> LoadedApp:
 
 def _format_is_enabled(value: Any) -> str:
     """Return a coloured string `"Enabled" if ``value`` is truthy, else "Disabled"."""
-    if value:
-        return "[green]Enabled[/]"
-    return "[red]Disabled[/]"
+    return "[green]Enabled[/]" if value else "[red]Disabled[/]"
 
 
 def show_app_info(app: Litestar) -> None:  # pragma: no cover
@@ -354,12 +386,11 @@ def show_app_info(app: Litestar) -> None:  # pragma: no cover
 
     if app.static_files_config:
         static_files_configs = app.static_files_config
-        static_files_info = []
-        for static_files in static_files_configs:
-            static_files_info.append(
-                f"path=[yellow]{static_files.path}[/] dirs=[yellow]{', '.join(map(str, static_files.directories))}[/] "
-                f"html_mode={_format_is_enabled(static_files.html_mode)}",
-            )
+        static_files_info = [
+            f"path=[yellow]{static_files.path}[/] dirs=[yellow]{', '.join(map(str, static_files.directories))}[/] "
+            f"html_mode={_format_is_enabled(static_files.html_mode)}"
+            for static_files in static_files_configs
+        ]
         table.add_row("Static files", "\n".join(static_files_info))
 
     middlewares = []

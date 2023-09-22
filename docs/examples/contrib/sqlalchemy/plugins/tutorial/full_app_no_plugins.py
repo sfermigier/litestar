@@ -51,8 +51,8 @@ async def get_todo_by_title(todo_name, session: AsyncSession) -> TodoItem:
     result = await session.execute(query)
     try:
         return result.scalar_one()
-    except NoResultFound:
-        raise NotFoundException(detail=f"TODO {todo_name!r} not found")
+    except NoResultFound as e:
+        raise NotFoundException(detail=f"TODO {todo_name!r} not found") from e
 
 
 async def get_todo_list(done: Optional[bool], session: AsyncSession) -> List[TodoItem]:
@@ -77,22 +77,21 @@ async def add_item(data: TodoType, state: State) -> TodoType:
         try:
             async with session.begin():
                 session.add(new_todo)
-        except IntegrityError:
+        except IntegrityError as e:
             raise ClientException(
                 status_code=HTTP_409_CONFLICT,
                 detail=f"TODO {new_todo.title!r} already exists",
-            )
+            ) from e
 
     return serialize_todo(new_todo)
 
 
 @put("/{item_title:str}")
 async def update_item(item_title: str, data: TodoType, state: State) -> TodoType:
-    async with sessionmaker(bind=state.engine) as session:
-        async with session.begin():
-            todo_item = await get_todo_by_title(item_title, session)
-            todo_item.title = data["title"]
-            todo_item.done = data["done"]
+    async with sessionmaker(bind=state.engine) as session, session.begin():
+        todo_item = await get_todo_by_title(item_title, session)
+        todo_item.title = data["title"]
+        todo_item.done = data["done"]
     return serialize_todo(todo_item)
 
 

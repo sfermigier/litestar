@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from litestar.config.csrf import CSRFConfig
     from litestar.config.response_cache import ResponseCacheConfig
     from litestar.datastructures import CacheControlHeader, ETag, ResponseHeader, State
-    from litestar.dto.interface import DTOInterface
+    from litestar.dto import AbstractDTO
     from litestar.events import BaseEventEmitterBackend, EventListener
     from litestar.logging.config import BaseLoggingConfig
     from litestar.middleware.session.base import BaseBackendConfig
@@ -55,7 +55,7 @@ if TYPE_CHECKING:
 def create_test_client(
     route_handlers: ControllerRouterHandler | Sequence[ControllerRouterHandler] | None = None,
     *,
-    after_exception: OptionalSequence[AfterExceptionHookHandler] = None,
+    after_exception: OptionalSequence[AfterExceptionHookHandler] | None = None,
     after_request: AfterRequestHookHandler | None = None,
     after_response: AfterResponseHookHandler | None = None,
     allowed_hosts: Sequence[str] | AllowedHostsConfig | None = None,
@@ -63,29 +63,29 @@ def create_test_client(
     backend_options: Mapping[str, Any] | None = None,
     base_url: str = "http://testserver.local",
     before_request: BeforeRequestHookHandler | None = None,
-    before_send: OptionalSequence[BeforeMessageSendHookHandler] = None,
+    before_send: OptionalSequence[BeforeMessageSendHookHandler] | None = None,
     cache_control: CacheControlHeader | None = None,
     compression_config: CompressionConfig | None = None,
     cors_config: CORSConfig | None = None,
     csrf_config: CSRFConfig | None = None,
-    debug: bool = False,
+    debug: bool = True,
     dependencies: Dependencies | None = None,
-    dto: type[DTOInterface] | None | EmptyType = Empty,
+    dto: type[AbstractDTO] | None | EmptyType = Empty,
     etag: ETag | None = None,
     event_emitter_backend: type[BaseEventEmitterBackend] = SimpleEventEmitter,
     exception_handlers: ExceptionHandlersMap | None = None,
-    guards: OptionalSequence[Guard] = None,
-    listeners: OptionalSequence[EventListener] = None,
+    guards: OptionalSequence[Guard] | None = None,
+    listeners: OptionalSequence[EventListener] | None = None,
     logging_config: BaseLoggingConfig | EmptyType | None = Empty,
-    middleware: OptionalSequence[Middleware] = None,
+    middleware: OptionalSequence[Middleware] | None = None,
     multipart_form_part_limit: int = 1000,
-    on_app_init: OptionalSequence[OnAppInitHandler] = None,
-    on_shutdown: OptionalSequence[LifespanHook] = None,
-    on_startup: OptionalSequence[LifespanHook] = None,
+    on_app_init: OptionalSequence[OnAppInitHandler] | None = None,
+    on_shutdown: OptionalSequence[LifespanHook] | None = None,
+    on_startup: OptionalSequence[LifespanHook] | None = None,
     openapi_config: OpenAPIConfig | None = DEFAULT_OPENAPI_CONFIG,
     opt: Mapping[str, Any] | None = None,
     parameters: ParametersMap | None = None,
-    plugins: OptionalSequence[PluginProtocol] = None,
+    plugins: OptionalSequence[PluginProtocol] | None = None,
     lifespan: list[Callable[[Litestar], AbstractAsyncContextManager] | AbstractAsyncContextManager] | None = None,
     raise_server_exceptions: bool = True,
     pdb_on_exception: bool | None = None,
@@ -93,21 +93,20 @@ def create_test_client(
     response_cache_config: ResponseCacheConfig | None = None,
     response_class: ResponseType | None = None,
     response_cookies: ResponseCookies | None = None,
-    response_headers: OptionalSequence[ResponseHeader] = None,
-    return_dto: type[DTOInterface] | None | EmptyType = Empty,
+    response_headers: OptionalSequence[ResponseHeader] | None = None,
+    return_dto: type[AbstractDTO] | None | EmptyType = Empty,
     root_path: str = "",
-    security: OptionalSequence[SecurityRequirement] = None,
+    security: OptionalSequence[SecurityRequirement] | None = None,
     session_config: BaseBackendConfig | None = None,
     signature_namespace: Mapping[str, Any] | None = None,
     state: State | None = None,
-    static_files_config: OptionalSequence[StaticFilesConfig] = None,
+    static_files_config: OptionalSequence[StaticFilesConfig] | None = None,
     stores: StoreRegistry | dict[str, Store] | None = None,
     tags: Sequence[str] | None = None,
     template_config: TemplateConfig | None = None,
     timeout: float | None = None,
     type_encoders: TypeEncodersMap | None = None,
     websocket_class: type[WebSocket] | None = None,
-    _preferred_validation_backend: Literal["pydantic", "attrs"] | None = None,
 ) -> TestClient[Litestar]:
     """Create a Litestar app instance and initializes it.
 
@@ -168,7 +167,7 @@ def create_test_client(
         csrf_config: If set, configures :class:`CSRFMiddleware <.middleware.csrf.CSRFMiddleware>`.
         debug: If ``True``, app errors rendered as HTML with a stack trace.
         dependencies: A string keyed mapping of dependency :class:`Providers <.di.Provide>`.
-        dto: :class:`DTOInterface <.dto.interface.DTOInterface>` to use for (de)serializing and
+        dto: :class:`AbstractDTO <.dto.base_dto.AbstractDTO>` to use for (de)serializing and
             validation of request data.
         etag: An ``etag`` header of type :class:`ETag <.datastructures.ETag>` to add to route handlers of this app.
             Can be overridden by route handlers.
@@ -204,7 +203,7 @@ def create_test_client(
         response_cookies: A sequence of :class:`Cookie <.datastructures.Cookie>`.
         response_headers: A string keyed mapping of :class:`ResponseHeader <.datastructures.ResponseHeader>`
         response_cache_config: Configures caching behavior of the application.
-        return_dto: :class:`DTOInterface <.dto.interface.DTOInterface>` to use for serializing
+        return_dto: :class:`AbstractDTO <.dto.base_dto.AbstractDTO>` to use for serializing
             outbound response data.
         route_handlers: A sequence of route handlers, which can include instances of
             :class:`Router <.router.Router>`, subclasses of :class:`Controller <.controller.Controller>` or any
@@ -281,7 +280,6 @@ def create_test_client(
         template_config=template_config,
         type_encoders=type_encoders,
         websocket_class=websocket_class,
-        _preferred_validation_backend=_preferred_validation_backend,
     )
 
     return TestClient[Litestar](
@@ -299,7 +297,7 @@ def create_test_client(
 def create_async_test_client(
     route_handlers: ControllerRouterHandler | Sequence[ControllerRouterHandler] | None = None,
     *,
-    after_exception: OptionalSequence[AfterExceptionHookHandler] = None,
+    after_exception: OptionalSequence[AfterExceptionHookHandler] | None = None,
     after_request: AfterRequestHookHandler | None = None,
     after_response: AfterResponseHookHandler | None = None,
     allowed_hosts: Sequence[str] | AllowedHostsConfig | None = None,
@@ -307,51 +305,50 @@ def create_async_test_client(
     backend_options: Mapping[str, Any] | None = None,
     base_url: str = "http://testserver.local",
     before_request: BeforeRequestHookHandler | None = None,
-    before_send: OptionalSequence[BeforeMessageSendHookHandler] = None,
+    before_send: OptionalSequence[BeforeMessageSendHookHandler] | None = None,
     cache_control: CacheControlHeader | None = None,
     compression_config: CompressionConfig | None = None,
     cors_config: CORSConfig | None = None,
     csrf_config: CSRFConfig | None = None,
-    debug: bool = False,
+    debug: bool = True,
     dependencies: Dependencies | None = None,
-    dto: type[DTOInterface] | None | EmptyType = Empty,
+    dto: type[AbstractDTO] | None | EmptyType = Empty,
     etag: ETag | None = None,
     event_emitter_backend: type[BaseEventEmitterBackend] = SimpleEventEmitter,
     exception_handlers: ExceptionHandlersMap | None = None,
-    guards: OptionalSequence[Guard] = None,
+    guards: OptionalSequence[Guard] | None = None,
     lifespan: list[Callable[[Litestar], AbstractAsyncContextManager] | AbstractAsyncContextManager] | None = None,
-    listeners: OptionalSequence[EventListener] = None,
+    listeners: OptionalSequence[EventListener] | None = None,
     logging_config: BaseLoggingConfig | EmptyType | None = Empty,
-    middleware: OptionalSequence[Middleware] = None,
+    middleware: OptionalSequence[Middleware] | None = None,
     multipart_form_part_limit: int = 1000,
-    on_app_init: OptionalSequence[OnAppInitHandler] = None,
-    on_shutdown: OptionalSequence[LifespanHook] = None,
-    on_startup: OptionalSequence[LifespanHook] = None,
+    on_app_init: OptionalSequence[OnAppInitHandler] | None = None,
+    on_shutdown: OptionalSequence[LifespanHook] | None = None,
+    on_startup: OptionalSequence[LifespanHook] | None = None,
     openapi_config: OpenAPIConfig | None = DEFAULT_OPENAPI_CONFIG,
     opt: Mapping[str, Any] | None = None,
     parameters: ParametersMap | None = None,
     pdb_on_exception: bool | None = None,
-    plugins: OptionalSequence[PluginProtocol] = None,
+    plugins: OptionalSequence[PluginProtocol] | None = None,
     raise_server_exceptions: bool = True,
     request_class: type[Request] | None = None,
     response_cache_config: ResponseCacheConfig | None = None,
     response_class: ResponseType | None = None,
     response_cookies: ResponseCookies | None = None,
-    response_headers: OptionalSequence[ResponseHeader] = None,
-    return_dto: type[DTOInterface] | None | EmptyType = Empty,
+    response_headers: OptionalSequence[ResponseHeader] | None = None,
+    return_dto: type[AbstractDTO] | None | EmptyType = Empty,
     root_path: str = "",
-    security: OptionalSequence[SecurityRequirement] = None,
+    security: OptionalSequence[SecurityRequirement] | None = None,
     session_config: BaseBackendConfig | None = None,
     signature_namespace: Mapping[str, Any] | None = None,
     state: State | None = None,
-    static_files_config: OptionalSequence[StaticFilesConfig] = None,
+    static_files_config: OptionalSequence[StaticFilesConfig] | None = None,
     stores: StoreRegistry | dict[str, Store] | None = None,
     tags: Sequence[str] | None = None,
     template_config: TemplateConfig | None = None,
     timeout: float | None = None,
     type_encoders: TypeEncodersMap | None = None,
     websocket_class: type[WebSocket] | None = None,
-    _preferred_validation_backend: Literal["pydantic", "attrs"] | None = None,
 ) -> AsyncTestClient[Litestar]:
     """Create a Litestar app instance and initializes it.
 
@@ -412,7 +409,7 @@ def create_async_test_client(
         csrf_config: If set, configures :class:`CSRFMiddleware <.middleware.csrf.CSRFMiddleware>`.
         debug: If ``True``, app errors rendered as HTML with a stack trace.
         dependencies: A string keyed mapping of dependency :class:`Providers <.di.Provide>`.
-        dto: :class:`DTOInterface <.dto.interface.DTOInterface>` to use for (de)serializing and
+        dto: :class:`AbstractDTO <.dto.base_dto.AbstractDTO>` to use for (de)serializing and
             validation of request data.
         etag: An ``etag`` header of type :class:`ETag <.datastructures.ETag>` to add to route handlers of this app.
             Can be overridden by route handlers.
@@ -448,7 +445,7 @@ def create_async_test_client(
         response_cookies: A sequence of :class:`Cookie <.datastructures.Cookie>`.
         response_headers: A string keyed mapping of :class:`ResponseHeader <.datastructures.ResponseHeader>`
         response_cache_config: Configures caching behavior of the application.
-        return_dto: :class:`DTOInterface <.dto.interface.DTOInterface>` to use for serializing
+        return_dto: :class:`AbstractDTO <.dto.base_dto.AbstractDTO>` to use for serializing
             outbound response data.
         route_handlers: A sequence of route handlers, which can include instances of
             :class:`Router <.router.Router>`, subclasses of :class:`Controller <.controller.Controller>` or any
@@ -525,7 +522,6 @@ def create_async_test_client(
         template_config=template_config,
         type_encoders=type_encoders,
         websocket_class=websocket_class,
-        _preferred_validation_backend=_preferred_validation_backend,
     )
 
     return AsyncTestClient[Litestar](

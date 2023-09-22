@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import TYPE_CHECKING, Callable, Literal
+from typing import TYPE_CHECKING, Any, Callable, Literal
 
 from yaml import dump as dump_yaml
 
@@ -31,9 +31,9 @@ class OpenAPIController(Controller):
     """Base styling of the html body."""
     redoc_version: str = "next"
     """Redoc version to download from the CDN."""
-    swagger_ui_version: str = "5.0.0"
+    swagger_ui_version: str = "5.1.3"
     """SwaggerUI version to download from the CDN."""
-    stoplight_elements_version: str = "7.7.5"
+    stoplight_elements_version: str = "7.7.18"
     """StopLight Elements version to download from the CDN."""
     favicon_url: str = ""
     """URL to download a favicon from."""
@@ -67,14 +67,11 @@ class OpenAPIController(Controller):
     _dumped_schema: str = ""
     # until swagger-ui supports v3.1.* of OpenAPI officially, we need to modify the schema for it and keep it
     # separate from the redoc version of the schema, which is unmodified.
-    _dumped_modified_schema: str = ""
-    # set the dto types to `None` to ensure that if a dto is supplied at the application layer, they don't apply to
-    # this controller.
     dto = None
     return_dto = None
 
     @staticmethod
-    def get_schema_from_request(request: Request) -> OpenAPI:
+    def get_schema_from_request(request: Request[Any, Any, Any]) -> OpenAPI:
         """Return the OpenAPI pydantic model from the request instance.
 
         Args:
@@ -85,7 +82,7 @@ class OpenAPIController(Controller):
         """
         return request.app.openapi_schema
 
-    def should_serve_endpoint(self, request: Request) -> bool:
+    def should_serve_endpoint(self, request: Request[Any, Any, Any]) -> bool:
         """Verify that the requested path is within the enabled endpoints in the openapi_config.
 
         Args:
@@ -110,10 +107,7 @@ class OpenAPIController(Controller):
         if request_path == root_path and config.root_schema_site in config.enabled_endpoints:
             return True
 
-        if request_path & config.enabled_endpoints:
-            return True
-
-        return False
+        return bool(request_path & config.enabled_endpoints)
 
     @property
     def favicon(self) -> str:
@@ -138,7 +132,7 @@ class OpenAPIController(Controller):
         }
 
     @get(path="/openapi.yaml", media_type=OpenAPIMediaType.OPENAPI_YAML, include_in_schema=False, sync_to_thread=False)
-    def retrieve_schema_yaml(self, request: Request) -> ASGIResponse:
+    def retrieve_schema_yaml(self, request: Request[Any, Any, Any]) -> ASGIResponse:
         """Return the OpenAPI schema as YAML with an ``application/vnd.oai.openapi`` Content-Type header.
 
         Args:
@@ -156,7 +150,7 @@ class OpenAPIController(Controller):
         return ASGIResponse(body=b"", status_code=HTTP_404_NOT_FOUND, media_type=MediaType.HTML)
 
     @get(path="/openapi.json", media_type=OpenAPIMediaType.OPENAPI_JSON, include_in_schema=False, sync_to_thread=False)
-    def retrieve_schema_json(self, request: Request) -> ASGIResponse:
+    def retrieve_schema_json(self, request: Request[Any, Any, Any]) -> ASGIResponse:
         """Return the OpenAPI schema as JSON with an ``application/vnd.oai.openapi+json`` Content-Type header.
 
         Args:
@@ -174,7 +168,7 @@ class OpenAPIController(Controller):
         return ASGIResponse(body=b"", status_code=HTTP_404_NOT_FOUND, media_type=MediaType.HTML)
 
     @get(path="/", include_in_schema=False, sync_to_thread=False)
-    def root(self, request: Request) -> ASGIResponse:
+    def root(self, request: Request[Any, Any, Any]) -> ASGIResponse:
         """Render a static documentation site.
 
          The site to be rendered is based on the ``root_schema_site`` value set in the application's
@@ -201,7 +195,7 @@ class OpenAPIController(Controller):
         return ASGIResponse(body=self.render_404_page(), status_code=HTTP_404_NOT_FOUND, media_type=MediaType.HTML)
 
     @get(path="/swagger", include_in_schema=False, sync_to_thread=False)
-    def swagger_ui(self, request: Request) -> ASGIResponse:
+    def swagger_ui(self, request: Request[Any, Any, Any]) -> ASGIResponse:
         """Route handler responsible for rendering Swagger-UI.
 
         Args:
@@ -216,7 +210,7 @@ class OpenAPIController(Controller):
         return ASGIResponse(body=self.render_404_page(), status_code=HTTP_404_NOT_FOUND, media_type=MediaType.HTML)
 
     @get(path="/elements", media_type=MediaType.HTML, include_in_schema=False, sync_to_thread=False)
-    def stoplight_elements(self, request: Request) -> ASGIResponse:
+    def stoplight_elements(self, request: Request[Any, Any, Any]) -> ASGIResponse:
         """Route handler responsible for rendering StopLight Elements.
 
         Args:
@@ -231,7 +225,7 @@ class OpenAPIController(Controller):
         return ASGIResponse(body=self.render_404_page(), status_code=HTTP_404_NOT_FOUND, media_type=MediaType.HTML)
 
     @get(path="/redoc", media_type=MediaType.HTML, include_in_schema=False, sync_to_thread=False)
-    def redoc(self, request: Request) -> ASGIResponse:  # pragma: no cover
+    def redoc(self, request: Request[Any, Any, Any]) -> ASGIResponse:  # pragma: no cover
         """Route handler responsible for rendering Redoc.
 
         Args:
@@ -245,7 +239,7 @@ class OpenAPIController(Controller):
             return ASGIResponse(body=self.render_redoc(request), media_type=MediaType.HTML)
         return ASGIResponse(body=self.render_404_page(), status_code=HTTP_404_NOT_FOUND, media_type=MediaType.HTML)
 
-    def render_swagger_ui(self, request: Request) -> bytes:
+    def render_swagger_ui(self, request: Request[Any, Any, Any]) -> bytes:
         """Render an HTML page for Swagger-UI.
 
         Notes:
@@ -300,7 +294,7 @@ class OpenAPIController(Controller):
             </html>
         """.encode()
 
-    def render_stoplight_elements(self, request: Request) -> bytes:
+    def render_stoplight_elements(self, request: Request[Any, Any, Any]) -> bytes:
         """Render an HTML page for StopLight Elements.
 
         Notes:
@@ -344,7 +338,7 @@ class OpenAPIController(Controller):
             </html>
         """.encode()
 
-    def render_redoc(self, request: Request) -> bytes:  # pragma: no cover
+    def render_redoc(self, request: Request[Any, Any, Any]) -> bytes:  # pragma: no cover
         """Render an HTML page for Redoc.
 
         Notes:

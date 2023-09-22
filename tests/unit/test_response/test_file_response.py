@@ -27,7 +27,7 @@ def test_file_response_default_content_type(tmpdir: Path, content_disposition_ty
     def handler() -> File:
         return File(path=path, content_disposition_type=content_disposition_type)
 
-    with create_test_client(handler, debug=True, openapi_config=None) as client:
+    with create_test_client(handler, openapi_config=None) as client:
         response = client.get("/")
         assert response.status_code == HTTP_200_OK
         assert response.headers["content-type"] == "application/octet-stream"
@@ -147,7 +147,7 @@ def test_file_with_different_file_systems(tmpdir: "Path", file_system: "FileSyst
             file_system=file_system,
         )
 
-    with create_test_client(handler, debug=True) as client:
+    with create_test_client(handler) as client:
         response = client.get("/")
         assert response.status_code == HTTP_200_OK
         assert response.text == "content"
@@ -183,7 +183,7 @@ def test_file_with_passed_in_stat_result(tmpdir: "Path") -> None:
 
     @get("/", media_type="application/octet-stream")
     def handler() -> File:
-        return File(filename="text.txt", path=path, file_system=fs, stat_result=stat_result)
+        return File(filename="text.txt", path=path, file_system=fs, stat_result=stat_result)  # pyright: ignore
 
     with create_test_client(handler) as client:
         response = client.get("/")

@@ -69,9 +69,9 @@ def test_by_alias() -> None:
         "title": "RequestWithAlias",
     }
     assert schemas["ResponseWithAlias"] == {
-        "properties": {"first": {"type": "string"}},
+        "properties": {"second": {"type": "string"}},
         "type": "object",
-        "required": ["first"],
+        "required": ["second"],
         "title": "ResponseWithAlias",
     }
 
@@ -111,6 +111,16 @@ def test_allows_customization_of_operation_id_creator() -> None:
             }
         },
     }
+
+
+def test_allows_customization_of_path() -> None:
+    app = Litestar(
+        openapi_config=OpenAPIConfig(title="my title", version="1.0.0", path="/custom_schema_path"),
+    )
+
+    assert app.openapi_config
+    assert app.openapi_config.path == "/custom_schema_path"
+    assert app.openapi_config.openapi_controller.path == "/custom_schema_path"
 
 
 def test_raises_exception_when_no_config_in_place() -> None:

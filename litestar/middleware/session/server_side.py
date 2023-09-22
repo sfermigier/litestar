@@ -119,7 +119,9 @@ class ServerSideSessionBackend(BaseSessionBackend["ServerSideSessionConfig"]):
         else:
             serialised_data = self.serialize_data(scope_session, scope)
             await self.set(session_id=session_id, data=serialised_data, store=store)
-            headers["Set-Cookie"] = Cookie(value=session_id, key=self.config.key, **cookie_params).to_header(header="")
+            headers.add(
+                "Set-Cookie", Cookie(value=session_id, key=self.config.key, **cookie_params).to_header(header="")
+            )
 
     async def load_from_connection(self, connection: ASGIConnection) -> dict[str, Any]:
         """Load session data from a connection and return it as a dictionary to be used in the current application
@@ -137,8 +139,7 @@ class ServerSideSessionBackend(BaseSessionBackend["ServerSideSessionConfig"]):
         Returns:
             The current session data
         """
-        session_id = connection.cookies.get(self.config.key)
-        if session_id:
+        if session_id := connection.cookies.get(self.config.key):
             store = self.config.get_store_from_app(connection.scope["app"])
             data = await self.get(session_id, store=store)
             if data is not None:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Awaitable
+from typing import TYPE_CHECKING
 
 from litestar.contrib.jwt.jwt_token import Token
 from litestar.exceptions import NotAuthorizedException
@@ -33,10 +33,10 @@ class JWTAuthenticationMiddleware(AbstractAuthenticationMiddleware):
         auth_header: str,
         exclude: str | list[str] | None,
         exclude_opt_key: str,
-        retrieve_user_handler: AsyncCallable[[Token, ASGIConnection[Any, Any, Any, Any]], Awaitable[Any]],
+        retrieve_user_handler: AsyncCallable[[Token, ASGIConnection[Any, Any, Any, Any]], Any],
         scopes: Scopes,
         token_secret: str,
-    ):
+    ) -> None:
         """Check incoming requests for an encoded token in the auth header specified, and if present retrieve the user
         from persistence using the provided function.
 
@@ -117,10 +117,10 @@ class JWTCookieAuthenticationMiddleware(JWTAuthenticationMiddleware):
         auth_header: str,
         exclude: str | list[str] | None,
         exclude_opt_key: str,
-        retrieve_user_handler: AsyncCallable[[Token, ASGIConnection[Any, Any, Any, Any]], Awaitable[Any]],
+        retrieve_user_handler: AsyncCallable[[Token, ASGIConnection[Any, Any, Any, Any]], Any],
         scopes: Scopes,
         token_secret: str,
-    ):
+    ) -> None:
         """Check incoming requests for an encoded token in the auth header or cookie name specified, and if present
         retrieves the user from persistence using the provided function.
 

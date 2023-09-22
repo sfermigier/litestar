@@ -4,7 +4,7 @@ from html import escape
 from inspect import getinnerframes
 from pathlib import Path
 from traceback import format_exception
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from litestar.enums import MediaType
 from litestar.response import Response
@@ -95,10 +95,9 @@ def create_frame_html(frame: FrameInfo, collapsed: bool) -> str:
     """
     frame_tpl = (tpl_dir / "frame.html").read_text()
 
-    code_lines: list[str] = []
-    for idx, line in enumerate(frame.code_context or []):
-        code_lines.append(create_line_html(line, frame.lineno, frame.index or 0, idx))  # pyright: ignore
-
+    code_lines: list[str] = [
+        create_line_html(line, frame.lineno, frame.index or 0, idx) for idx, line in enumerate(frame.code_context or [])
+    ]
     data = {
         "file": escape(frame.filename),
         "line": frame.lineno,
@@ -120,10 +119,7 @@ def create_exception_html(exc: BaseException, line_limit: int) -> str:
         A string containing HTML representation of the execution frames related to the exception.
     """
     frames = getinnerframes(exc.__traceback__, line_limit) if exc.__traceback__ else []
-    result = []
-    for idx, frame in enumerate(reversed(frames)):
-        result.append(create_frame_html(frame=frame, collapsed=idx > 0))
-
+    result = [create_frame_html(frame=frame, collapsed=idx > 0) for idx, frame in enumerate(reversed(frames))]
     return "".join(result)
 
 
@@ -184,9 +180,12 @@ def create_debug_response(request: Request, exc: Exception) -> Response:
     Returns:
         A response with a rendered exception traceback.
     """
-    if "text/html" in request.headers.get("accept", ""):
-        content = create_html_response_content(exc=exc, request=request)
+    if MediaType.HTML in request.headers.get("accept", ""):
+        content: Any = create_html_response_content(exc=exc, request=request)
         media_type = MediaType.HTML
+    elif MediaType.JSON in request.headers.get("accept", ""):
+        content = {"details": create_plain_text_response_content(exc), "status_code": HTTP_500_INTERNAL_SERVER_ERROR}
+        media_type = MediaType.JSON
     else:
         content = create_plain_text_response_content(exc)
         media_type = MediaType.TEXT

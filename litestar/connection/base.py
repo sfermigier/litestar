@@ -16,10 +16,8 @@ __all__ = ("ASGIConnection", "empty_receive", "empty_send")
 if TYPE_CHECKING:
     from typing import NoReturn
 
-    from pydantic import BaseModel
-
     from litestar.app import Litestar
-    from litestar.types import EmptyType
+    from litestar.types import DataContainerType, EmptyType
     from litestar.types.asgi_types import Message, Receive, Scope, Send
     from litestar.types.protocols import Logger
 
@@ -155,7 +153,7 @@ class ASGIConnection(Generic[HandlerT, UserT, AuthT, StateT]):
         return Headers(self._headers)
 
     @property
-    def query_params(self) -> MultiDict:
+    def query_params(self) -> MultiDict[Any]:
         """Return the query parameters of this connection's ``Scope``.
 
         Returns:
@@ -184,9 +182,7 @@ class ASGIConnection(Generic[HandlerT, UserT, AuthT, StateT]):
         """
         if self._cookies is Empty:
             cookies: dict[str, str] = {}
-            cookie_header = self.headers.get("cookie")
-
-            if cookie_header:
+            if cookie_header := self.headers.get("cookie"):
                 cookies = parse_cookie_string(cookie_header)
 
             self._cookies = self.scope["_cookies"] = cookies  # type: ignore[typeddict-unknown-key]
@@ -262,7 +258,7 @@ class ASGIConnection(Generic[HandlerT, UserT, AuthT, StateT]):
         """
         return self.app.get_logger()
 
-    def set_session(self, value: dict[str, Any] | BaseModel | EmptyType) -> None:
+    def set_session(self, value: dict[str, Any] | DataContainerType | EmptyType) -> None:
         """Set the session in the connection's ``Scope``.
 
         If the :class:`SessionMiddleware <.middleware.session.base.SessionMiddleware>` is enabled, the session will be added

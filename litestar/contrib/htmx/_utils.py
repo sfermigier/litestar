@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, cast
 from urllib.parse import quote
 
 from litestar.exceptions import ImproperlyConfiguredException
@@ -62,7 +62,6 @@ class HTMXHeaders(str, Enum):
 
 def get_trigger_event_headers(trigger_event: TriggerEventType) -> dict[str, Any]:
     """Return headers for trigger event response."""
-    params = trigger_event["params"] or {}
     after_params: dict[EventAfterType, str] = {
         "receive": HTMXHeaders.TRIGGER_EVENT.value,
         "settle": HTMXHeaders.TRIGGER_AFTER_SETTLE.value,
@@ -70,7 +69,7 @@ def get_trigger_event_headers(trigger_event: TriggerEventType) -> dict[str, Any]
     }
 
     if trigger_header := after_params.get(trigger_event["after"]):
-        return {trigger_header: encode_json({trigger_event["name"]: params}).decode()}
+        return {trigger_header: encode_json({trigger_event["name"]: trigger_event["params"] or {}}).decode()}
 
     raise ImproperlyConfiguredException(
         "invalid value for 'after' param- allowed values are 'receive', 'settle' or 'swap'."
@@ -100,10 +99,7 @@ def get_replace_url_header(url: PushUrlType) -> dict[str, Any]:
 
 def get_refresh_header(refresh: bool) -> dict[str, Any]:
     """Return headers for client refresh response."""
-    value = ""
-    if refresh:
-        value = "true"
-    return {HTMXHeaders.REFRESH.value: value}
+    return {HTMXHeaders.REFRESH.value: "true" if refresh else ""}
 
 
 def get_reswap_header(method: ReSwapMethod) -> dict[str, Any]:
@@ -118,13 +114,9 @@ def get_retarget_header(target: str) -> dict[str, Any]:
 
 def get_location_headers(location: LocationType) -> dict[str, Any]:
     """Return headers for redirect without page-reload response."""
-    spec: dict[str, Any] = {}
-    for key, value in location.items():
-        if value:
-            spec[key] = value
-    if not spec:
-        raise ValueError("redirect_to is required parameter.")
-    return {HTMXHeaders.LOCATION.value: encode_json(spec).decode()}
+    if spec := {key: value for key, value in location.items() if value}:
+        return {HTMXHeaders.LOCATION.value: encode_json(spec).decode()}
+    raise ValueError("redirect_to is required parameter.")
 
 
 def get_headers(hx_headers: HtmxHeaderType) -> dict[str, Any]:
@@ -146,10 +138,10 @@ def get_headers(hx_headers: HtmxHeaderType) -> dict[str, Any]:
     response: dict[str, Any]
     key: str
     value: Any
+
     for key, value in hx_headers.items():
         if key in ["redirect", "refresh", "location", "replace_url"]:
-            response = htmx_headers_dict[key](value)
-            return response
+            return cast("dict[str, Any]", htmx_headers_dict[key](value))
         if value is not None:
             response = htmx_headers_dict[key](value)
             header.update(response)

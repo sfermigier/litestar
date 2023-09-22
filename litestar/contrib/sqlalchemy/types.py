@@ -93,7 +93,7 @@ class ORA_JSONB(TypeDecorator, SchemaType):  # type: ignore  # noqa: N801
     cache_ok = True
 
     @property
-    def python_type(self) -> type[dict]:
+    def python_type(self) -> type[dict[str, Any]]:
         return dict
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -108,17 +108,13 @@ class ORA_JSONB(TypeDecorator, SchemaType):  # type: ignore  # noqa: N801
         return dialect.type_descriptor(ORA_BLOB())
 
     def process_bind_param(self, value: Any, dialect: Dialect) -> Any | None:
-        if value is None:
-            return value
-        return encode_json(value)
+        return value if value is None else encode_json(value)
 
     def process_result_value(self, value: bytes | None, dialect: Dialect) -> Any | None:
-        if value is None:
-            return value
-        return decode_json(value)
+        return value if value is None else decode_json(value=value)
 
     def _should_create_constraint(self, compiler: Any, **kw: Any) -> bool:
-        return bool(compiler.dialect.name == "oracle")
+        return cast("bool", compiler.dialect.name == "oracle")
 
     def _variant_mapping_for_set_table(self, column: Any) -> dict | None:
         if column.type._variant_mapping:

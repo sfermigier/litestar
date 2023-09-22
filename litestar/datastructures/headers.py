@@ -2,6 +2,7 @@ import re
 from abc import ABC, abstractmethod
 from contextlib import suppress
 from copy import copy
+from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -13,22 +14,25 @@ from typing import (
     Mapping,
     MutableMapping,
     Optional,
+    Pattern,
     Tuple,
     Union,
     cast,
 )
 
 from multidict import CIMultiDict, CIMultiDictProxy, MultiMapping
-from pydantic import BaseModel, Extra, Field, ValidationError, validator
-from typing_extensions import Annotated
+from typing_extensions import get_type_hints
 
 from litestar._multipart import parse_content_header
 from litestar._parsers import parse_headers
 from litestar.datastructures.multi_dicts import MultiMixin
-from litestar.exceptions import ImproperlyConfiguredException
+from litestar.dto.base_dto import AbstractDTO
+from litestar.exceptions import ImproperlyConfiguredException, ValidationException
 
 __all__ = ("Accept", "CacheControlHeader", "ETag", "Header", "Headers", "MutableScopeHeaders")
 
+from litestar.typing import FieldDefinition
+from litestar.utils.dataclass import simple_asdict
 
 if TYPE_CHECKING:
     from litestar.types.asgi_types import (
@@ -39,6 +43,7 @@ if TYPE_CHECKING:
     )
 
 ETAG_RE = re.compile(r'([Ww]/)?"(.+)"')
+PRINTABLE_ASCII_RE: Pattern[str] = re.compile(r"^[ -~]+$")
 
 
 def _encode_headers(headers: Iterable[Tuple[str, str]]) -> "RawHeadersList":
@@ -65,7 +70,7 @@ class Headers(CIMultiDictProxy[str], MultiMixin[str]):
             super().__init__(CIMultiDict(headers_))
         else:
             super().__init__(headers)
-        self._header_list: Optional["RawHeadersList"] = None
+        self._header_list: Optional[RawHeadersList] = None
 
     @classmethod
     def from_scope(cls, scope: "HeaderScope") -> "Headers":
@@ -91,12 +96,9 @@ class Headers(CIMultiDictProxy[str], MultiMixin[str]):
             A list of tuples contain the header and header-value as bytes
         """
         # Since ``Headers`` are immutable, this can be cached
-        header_list = self._header_list
-        if not header_list:
-            header_list = self._header_list = _encode_headers(
-                (key, value) for key in set(self) for value in self.getall(key)
-            )
-        return header_list
+        if not self._header_list:
+            self._header_list = _encode_headers((key, value) for key in set(self) for value in self.getall(key))
+        return self._header_list
 
 
 class MutableScopeHeaders(MutableMapping):
@@ -110,7 +112,7 @@ class MutableScopeHeaders(MutableMapping):
         Args:
             scope: The ASGI connection scope.
         """
-        self.headers: "RawHeadersList"
+        self.headers: RawHeadersList
         if scope is not None:
             if not isinstance(scope["headers"], list):
                 scope["headers"] = list(scope["headers"])
@@ -212,13 +214,12 @@ class MutableScopeHeaders(MutableMapping):
         """Set a header in the scope, overwriting duplicates."""
         name_encoded = key.lower().encode("latin-1")
         value_encoded = value.encode("latin-1")
-        indices = self._find_indices(key)
-        if not indices:
-            self.headers.append((name_encoded, value_encoded))
-        else:
+        if indices := self._find_indices(key):
             for i in indices[1:]:
                 del self.headers[i]
             self.headers[indices[0]] = (name_encoded, value_encoded)
+        else:
+            self.headers.append((name_encoded, value_encoded))
 
     def __delitem__(self, key: str) -> None:
         """Delete all headers matching ``name``"""
@@ -235,19 +236,11 @@ class MutableScopeHeaders(MutableMapping):
         return iter(h[0].decode("latin-1") for h in self.headers)
 
 
-class Header(BaseModel, ABC):
+@dataclass
+class Header(ABC):
     """An abstract type for HTTP headers."""
 
     HEADER_NAME: ClassVar[str] = ""
-
-    class Config:
-        allow_population_by_field_name = True
-        extra = Extra.forbid
-
-        @classmethod
-        def alias_generator(cls, field_name: str) -> str:
-            """Generate field-aliases by replacing dashes with underscores in header-names."""
-            return field_name.replace("_", "-")
 
     documentation_only: bool = False
     """Defines the header instance as for OpenAPI documentation purpose only."""
@@ -277,6 +270,7 @@ class Header(BaseModel, ABC):
         return (f"{self.HEADER_NAME}: " if include_header_name else "") + self._get_header_value()
 
 
+@dataclass
 class CacheControlHeader(Header):
     """A ``cache-control`` header."""
 
@@ -307,15 +301,15 @@ class CacheControlHeader(Header):
     stale_while_revalidate: Optional[int] = None
     """Accessor for the ``stale-while-revalidate`` directive."""
 
+    _field_definitions: ClassVar[Optional[Dict[str, FieldDefinition]]] = None
+
     def _get_header_value(self) -> str:
         """Get the header value as string."""
 
-        cc_items = []
-        for key, value in self.dict(
-            exclude_unset=True, exclude_none=True, by_alias=True, exclude={"documentation_only"}
-        ).items():
-            cc_items.append(key if isinstance(value, bool) else f"{key}={value}")
-
+        cc_items = [
+            key.replace("_", "-") if isinstance(value, bool) else f"{key.replace('_', '-')}={value}"
+            for key, value in simple_asdict(self, exclude_none=True, exclude={"documentation_only"}).items()
+        ]
         return ", ".join(cc_items)
 
     @classmethod
@@ -331,18 +325,23 @@ class CacheControlHeader(Header):
 
         cc_items = [v.strip() for v in header_value.split(",")]
         kwargs: Dict[str, Any] = {}
+        field_definitions = cls._get_field_definitions()
         for cc_item in cc_items:
             key_value = cc_item.split("=")
+            key_value[0] = key_value[0].replace("-", "_")
             if len(key_value) == 1:
                 kwargs[key_value[0]] = True
             elif len(key_value) == 2:
-                kwargs[key_value[0]] = key_value[1]
+                key, value = key_value
+                if key not in field_definitions:
+                    raise ImproperlyConfiguredException("Invalid cache-control header")
+                kwargs[key] = cls._convert_to_type(value, field_definition=field_definitions[key])
             else:
                 raise ImproperlyConfiguredException("Invalid cache-control header value")
 
         try:
             return CacheControlHeader(**kwargs)
-        except ValidationError as exc:
+        except TypeError as exc:
             raise ImproperlyConfiguredException from exc
 
     @classmethod
@@ -353,20 +352,57 @@ class CacheControlHeader(Header):
 
         return cls(no_store=True)
 
+    @classmethod
+    def _get_field_definitions(cls) -> Dict[str, FieldDefinition]:
+        """Get the type annotations for the ``CacheControlHeader`` class properties.
 
+        This is needed due to the conversion from pydantic models to dataclasses. Dataclasses do not support
+        automatic conversion of types like pydantic models do.
+
+        Returns:
+            A dictionary of type annotations
+
+        """
+
+        if cls._field_definitions is None:
+            cls._field_definitions = {}
+            for key, value in get_type_hints(cls, include_extras=True).items():
+                definition = FieldDefinition.from_kwarg(annotation=value, name=key)
+                # resolve_model_type so that field_definition.raw has the real raw type e.g. <class 'bool'>
+                cls._field_definitions[key] = AbstractDTO.resolve_model_type(definition)
+        return cls._field_definitions
+
+    @classmethod
+    def _convert_to_type(cls, value: str, field_definition: FieldDefinition) -> Any:
+        """Convert the value to the expected type.
+
+        Args:
+            value: the value of the cache-control directive
+            field_definition: the field definition for the value to convert
+
+        Returns:
+            The value converted to the expected type
+        """
+        # bool values shouldn't be initiated since they should have been caught earlier in the from_header method and
+        # set with a value of True
+        expected_type = field_definition.raw
+        if expected_type is bool:
+            raise ImproperlyConfiguredException("Invalid cache-control header value")
+        return expected_type(value)
+
+
+@dataclass
 class ETag(Header):
     """An ``etag`` header."""
 
     HEADER_NAME: ClassVar[str] = "etag"
 
     weak: bool = False
-    value: Annotated[Optional[str], Field(regex=r"^[ -~]+$")] = None  # only ASCII characters
+    value: Optional[str] = None  # only ASCII characters
 
     def _get_header_value(self) -> str:
         value = f'"{self.value}"'
-        if self.weak:
-            return f"W/{value}"
-        return value
+        return f"W/{value}" if self.weak else value
 
     @classmethod
     def from_header(cls, header_value: str) -> "ETag":
@@ -380,23 +416,22 @@ class ETag(Header):
         weak, value = match.group(1, 2)
         try:
             return cls(weak=bool(weak), value=value)
-        except ValidationError as exc:
+        except ValueError as exc:
             raise ImproperlyConfiguredException from exc
 
-    @validator("value", always=True)
-    def validate_value(cls, value: Any, values: Dict[str, Any]) -> Any:
-        """Ensure that either value is set or the instance is for ``documentation_only``."""
-        if values.get("documentation_only") or value is not None:
-            return value
-        raise ValueError("value must be set if documentation_only is false")
+    def __post_init__(self) -> None:
+        if self.documentation_only is False and self.value is None:
+            raise ValidationException("value must be set if documentation_only is false")
+        if self.value and not PRINTABLE_ASCII_RE.fullmatch(self.value):
+            raise ValidationException("value must only contain ASCII printable characters")
 
 
-class _MediaType:
+class MediaTypeHeader:
     """A helper class for ``Accept`` header parsing."""
 
     __slots__ = ("maintype", "subtype", "params", "_params_str")
 
-    def __init__(self, type_str: str):
+    def __init__(self, type_str: str) -> None:
         # preserve the original parameters, because the order might be
         # changed in the dict
         self._params_str = "".join(type_str.partition(";")[1:])
@@ -428,22 +463,13 @@ class _MediaType:
 
         return quality, specificity
 
-    def match(self, other: "_MediaType") -> bool:
-        # Check parameters first, ignore the weight parameter 'q'.
-        # Additional parameters on other are also ignored.
-        for key, value in self.params.items():
-            if key != "q" and value != other.params.get(key):
-                return False
-
-        # Then check if the subtypes match, ignoring the wildcard '*'
-        if self.subtype != "*" and other.subtype != "*" and self.subtype != other.subtype:
-            return False
-
-        # Lastly check the main type, also ignoring the wildcard '*'
-        if self.maintype != "*" and other.maintype != "*" and self.maintype != other.maintype:
-            return False
-
-        return True
+    def match(self, other: "MediaTypeHeader") -> bool:
+        return next(
+            (False for key, value in self.params.items() if key != "q" and value != other.params.get(key)),
+            False
+            if self.subtype != "*" and other.subtype != "*" and self.subtype != other.subtype
+            else self.maintype == "*" or other.maintype == "*" or self.maintype == other.maintype,
+        )
 
 
 class Accept:
@@ -451,8 +477,8 @@ class Accept:
 
     __slots__ = ("_accepted_types",)
 
-    def __init__(self, accept_value: str):
-        self._accepted_types = [_MediaType(t) for t in accept_value.split(",")]
+    def __init__(self, accept_value: str) -> None:
+        self._accepted_types = [MediaTypeHeader(t) for t in accept_value.split(",")]
         self._accepted_types.sort(key=lambda t: t.priority, reverse=True)
 
     def __len__(self) -> int:
@@ -477,7 +503,7 @@ class Accept:
             they are replaced with the corresponding part of the accepted type. Otherwise the
             provided type is returned as-is.
         """
-        types = [_MediaType(t) for t in provided_types]
+        types = [MediaTypeHeader(t) for t in provided_types]
 
         for accepted in self._accepted_types:
             for provided in types:

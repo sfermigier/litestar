@@ -8,17 +8,18 @@ import pytest
 from pydantic import SecretStr
 
 from litestar import MediaType, Response
+from litestar.contrib.pydantic import PydanticInitPlugin, _model_dump
 from litestar.exceptions import ImproperlyConfiguredException
 from litestar.serialization import get_serializer
 from tests import (
     MsgSpecStructPerson,
-    Person,
-    PersonFactory,
     PydanticDataClassPerson,
+    PydanticPerson,
+    PydanticPersonFactory,
     VanillaDataClassPerson,
 )
 
-person = PersonFactory.build()
+person = PydanticPersonFactory.build()
 secret = SecretStr("secret_text")
 pure_path = PurePath("/path/to/file")
 path = Path("/path/to/file")
@@ -33,12 +34,12 @@ class _TestEnum(enum.Enum):
 @pytest.mark.parametrize(
     "content, response_type",
     [
-        [person, Person],
+        [person, PydanticPerson],
         [{"key": 123}, Dict[str, int]],
         [[{"key": 123}], List[Dict[str, int]]],
-        [VanillaDataClassPerson(**person.dict()), VanillaDataClassPerson],
-        [PydanticDataClassPerson(**person.dict()), PydanticDataClassPerson],
-        [MsgSpecStructPerson(**person.dict()), MsgSpecStructPerson],
+        [VanillaDataClassPerson(**_model_dump(person)), VanillaDataClassPerson],
+        [PydanticDataClassPerson(**_model_dump(person)), PydanticDataClassPerson],
+        [MsgSpecStructPerson(**_model_dump(person)), MsgSpecStructPerson],
         [{"enum": _TestEnum.A}, Dict[str, _TestEnum]],
         [{"secret": secret}, Dict[str, SecretStr]],
         [{"pure_path": pure_path}, Dict[str, PurePath]],
@@ -46,7 +47,9 @@ class _TestEnum(enum.Enum):
     ],
 )
 def test_response_serialization_structured_types(content: Any, response_type: Any, media_type: MediaType) -> None:
-    encoded = Response(None).render(content, media_type=media_type, enc_hook=get_serializer({}))
+    encoded = Response(None).render(
+        content, media_type=media_type, enc_hook=get_serializer(type_encoders=PydanticInitPlugin.encoders())
+    )
     if media_type == media_type.JSON:
         value = loads(encoded)
     else:
@@ -90,4 +93,4 @@ def test_response_validation_of_unknown_media_types(
             response.render(content, media_type=media_type)
     else:
         rendered = response.render(content, media_type=media_type)
-        assert rendered == (content.encode("utf-8") if not isinstance(content, bytes) else content)
+        assert rendered == (content if isinstance(content, bytes) else content.encode("utf-8"))

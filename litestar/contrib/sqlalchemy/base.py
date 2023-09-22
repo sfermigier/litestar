@@ -66,7 +66,7 @@ def touch_updated_timestamp(session: Session, *_: Any) -> None:
     """
     for instance in session.dirty:
         if hasattr(instance, "updated_at"):
-            instance.updated = (datetime.now(timezone.utc),)
+            instance.updated_at = datetime.now(timezone.utc)
 
 
 @runtime_checkable
@@ -91,14 +91,16 @@ class UUIDPrimaryKey:
     id: Mapped[UUID] = mapped_column(default=uuid4, primary_key=True)  # pyright: ignore
     """UUID Primary key column."""
 
+    # noinspection PyMethodParameters
     @declared_attr
     def _sentinel(cls) -> Mapped[int]:
-        return orm_insert_sentinel()
+        return orm_insert_sentinel(name="sa_orm_sentinel")
 
 
 class BigIntPrimaryKey:
     """BigInt Primary Key Field Mixin."""
 
+    # noinspection PyMethodParameters
     @declared_attr
     def id(cls) -> Mapped[int]:
         """BigInt Primary key column."""
@@ -114,12 +116,12 @@ class AuditColumns:
 
     created_at: Mapped[datetime] = mapped_column(  # pyright: ignore
         DateTimeUTC(timezone=True),
-        default=datetime.now(timezone.utc),
+        default=lambda: datetime.now(timezone.utc),
     )
     """Date/time of instance creation."""
     updated_at: Mapped[datetime] = mapped_column(  # pyright: ignore
         DateTimeUTC(timezone=True),
-        default=datetime.now(timezone.utc),
+        default=lambda: datetime.now(timezone.utc),
     )
     """Date/time of instance last update."""
 
@@ -143,7 +145,7 @@ class CommonTableAttributes:
         Returns:
             dict[str, Any]: A dict representation of the model
         """
-        exclude = {"_sentinel"}.union(self._sa_instance_state.unloaded).union(exclude or [])  # type: ignore[attr-defined]
+        exclude = {"sa_orm_sentinel", "_sentinel"}.union(self._sa_instance_state.unloaded).union(exclude or [])  # type: ignore[attr-defined]
         return {field.name: getattr(self, field.name) for field in self.__table__.columns if field.name not in exclude}
 
 

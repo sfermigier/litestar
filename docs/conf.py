@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import importlib.metadata
 import os
 import re
@@ -9,6 +11,11 @@ from sphinx.application import Sphinx
 
 __all__ = ["setup", "update_html_context"]
 
+PY_CLASS = "py:class"
+PY_RE = r"py:.*"
+PY_METH = "py:meth"
+PY_ATTR = "py:attr"
+PY_OBJ = "py:obj"
 
 project = "Litestar"
 copyright = "2023, Litestar-Org"
@@ -25,6 +32,7 @@ extensions = [
     "tools.sphinx_ext",
     "sphinx_copybutton",
     "sphinxcontrib.mermaid",
+    "sphinx_click",
 ]
 
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
@@ -63,70 +71,85 @@ autodoc_typehints_format = "short"
 nitpicky = True
 nitpick_ignore = [
     # external library / undocumented external
-    ("py:class", "BaseModel"),
-    ("py:class", "pydantic.main.BaseModel"),
-    ("py:class", "pydantic.generics.GenericModel"),
-    ("py:class", "redis.asyncio.Redis"),
-    ("py:class", "sqlalchemy.orm.decl_api.DeclarativeMeta"),
-    ("py:class", "sqlalchemy.sql.sqltypes.TupleType"),
-    ("py:class", "sqlalchemy.dialects.postgresql.named_types.ENUM"),
-    ("py:class", "_orm.Mapper"),
-    ("py:class", "_orm.registry"),
-    ("py:class", "_schema.MetaData"),
-    ("py:class", "_schema.Table"),
-    ("py:class", "_RegistryType"),
-    ("py:class", "abc.Collection"),
-    ("py:class", "TypeEngine"),
-    ("py:class", "ExternalType"),
-    ("py:class", "UserDefinedType"),
-    ("py:class", "_types.TypeDecorator"),
-    ("py:meth", "_types.TypeDecorator.process_bind_param"),
-    ("py:meth", "_types.TypeDecorator.process_result_value"),
-    ("py:meth", "type_engine"),
+    (PY_CLASS, "BaseModel"),
+    (PY_CLASS, "ExternalType"),
+    (PY_CLASS, "TypeEngine"),
+    (PY_CLASS, "UserDefinedType"),
+    (PY_CLASS, "_RegistryType"),
+    (PY_CLASS, "_orm.Mapper"),
+    (PY_CLASS, "_orm.registry"),
+    (PY_CLASS, "_schema.MetaData"),
+    (PY_CLASS, "_schema.Table"),
+    (PY_CLASS, "_types.TypeDecorator"),
+    (PY_CLASS, "abc.Collection"),
+    (PY_CLASS, "pydantic.BaseModel"),
+    (PY_CLASS, "pydantic.generics.GenericModel"),
+    (PY_CLASS, "pydantic.main.BaseModel"),
+    (PY_CLASS, "redis.asyncio.Redis"),
+    (PY_CLASS, "sqlalchemy.dialects.postgresql.named_types.ENUM"),
+    (PY_CLASS, "sqlalchemy.orm.decl_api.DeclarativeMeta"),
+    (PY_CLASS, "sqlalchemy.sql.sqltypes.TupleType"),
+    (PY_METH, "_types.TypeDecorator.process_bind_param"),
+    (PY_METH, "_types.TypeDecorator.process_result_value"),
+    (PY_METH, "litestar.typing.ParsedType.is_subclass_of"),
+    (PY_METH, "type_engine"),
     # type vars and aliases / intentionally undocumented
-    ("py:class", "RouteHandlerType"),
-    ("py:obj", "litestar.security.base.AuthType"),
-    ("py:class", "ControllerRouterHandler"),
-    ("py:class", "PathParameterDefinition"),
-    ("py:class", "BaseSessionBackendT"),
-    ("py:class", "litestar.contrib.repository.abc.CollectionT"),
-    ("py:class", "litestar.contrib.sqlalchemy.repository.SelectT"),
-    ("py:class", "AnyIOBackend"),
-    ("py:class", "T"),
-    ("py:class", "C"),
-    ("py:class", "EmptyType"),
+    (PY_CLASS, "AnyIOBackend"),
+    (PY_CLASS, "BaseSessionBackendT"),
+    (PY_CLASS, "C"),
+    (PY_CLASS, "ControllerRouterHandler"),
+    (PY_CLASS, "EmptyType"),
+    (PY_CLASS, "PathParameterDefinition"),
+    (PY_CLASS, "RouteHandlerType"),
+    (PY_CLASS, "T"),
+    (PY_CLASS, "litestar.contrib.repository.abc.CollectionT"),
+    (PY_CLASS, "litestar.contrib.sqlalchemy.repository.SelectT"),
+    (PY_OBJ, "litestar.security.base.AuthType"),
     # intentionally undocumented
-    ("py:class", "NoneType"),
-    ("py:class", "litestar._signature.field.SignatureField"),
-    ("py:class", "litestar.utils.signature.ParsedType"),
-    ("py:class", "litestar.utils.signature.ParsedSignature"),
-    ("py:class", "litestar.utils.signature.ParsedParameter"),
-    ("py:class", "litestar.utils.sync.AsyncCallable"),
-    ("py:class", "BacklogStrategy"),
-    ("py:class", "ExceptionT"),
+    (PY_CLASS, "BacklogStrategy"),
+    (PY_CLASS, "ExceptionT"),
+    (PY_CLASS, "NoneType"),
+    (PY_CLASS, "litestar._openapi.schema_generation.schema.SchemaCreator"),
+    (PY_CLASS, "litestar.utils.signature.ParsedSignature"),
+    (PY_CLASS, "litestar.utils.sync.AsyncCallable"),
+    (PY_CLASS, "litestar._signature.model.SignatureModel"),
     # types in changelog that no longer exist
-    ("py:class", "litestar.response_containers.Template"),
-    ("py:class", "litestar.response_containers.Redirect"),
-    ("py:class", "litestar.response.RedirectResponse"),
+    (PY_ATTR, "litestar.dto.factory.DTOConfig.underscore_fields_private"),
+    (PY_CLASS, "anyio.abc.BlockingPortal"),
+    (PY_CLASS, "litestar.contrib.msgspec.MsgspecDTO"),
+    (PY_CLASS, "litestar.dto.base_factory.AbstractDTOFactory"),
+    (PY_CLASS, "litestar.dto.factory.DTOConfig"),
+    (PY_CLASS, "litestar.dto.factory.DTOData"),
+    (PY_CLASS, "litestar.dto.interface.DTOInterface"),
+    (PY_CLASS, "litestar.partial.Partial"),
+    (PY_CLASS, "litestar.response.RedirectResponse"),
+    (PY_CLASS, "litestar.response_containers.Redirect"),
+    (PY_CLASS, "litestar.response_containers.Template"),
+    (PY_CLASS, "litestar.typing.ParsedType"),
+    (PY_METH, "litestar.dto.factory.DTOData.create_instance"),
+    (PY_METH, "litestar.dto.interface.DTOInterface.data_to_encodable_type"),
 ]
+
 nitpick_ignore_regex = [
-    (r"py:.*", r"litestar\.types.*"),
-    (r"py:.*", r"litestar.*\.T"),
-    (r"py:.*", r".*R_co"),
-    (r"py:.*", r"ModelT"),
-    (r"py:.*", r"litestar.contrib.sqlalchemy.repository.ModelT"),
-    (r"py:.*", r".*UserType"),
-    (r"py:.*", r"litestar\.middleware\.session\.base\.BaseSessionBackendT"),
+    (PY_RE, r"litestar\.types.*"),
+    (PY_RE, r"litestar.*\.T"),
+    (PY_RE, r".*R_co"),
+    (PY_RE, r"ModelT"),
+    (PY_RE, r"litestar.contrib.sqlalchemy.repository.ModelT"),
+    (PY_RE, r".*UserType"),
+    (PY_RE, r"litestar\.middleware\.session\.base\.BaseSessionBackendT"),
     (r"py:obj", r"typing\..*"),
-    (r"py:.*", r"httpx.*"),
+    (r"py:attr", "litestar.contrib.repository.AbstractAsyncRepository.id_attribute"),
+    (r"py:attr", "litestar.contrib.repository.AbstractSyncRepository.id_attribute"),
+    (PY_RE, r"httpx.*"),
     # type vars
-    ("py:.*", r"litestar\.pagination\.C"),
-    ("py:.*", r"litestar.middleware.session.base.ConfigT"),
-    ("py:.*", r"multidict\..*"),
-    (r"py:.*", r"litestar\.connection\.base\.UserT"),
-    (r"py:.*", r"litestar\.connection\.base\.AuthT"),
-    (r"py:.*", r"litestar\.connection\.base\.StateT"),
-    (r"py:.*", r"litestar\.connection\.base\.HandlerT"),
+    (PY_RE, r"litestar\.pagination\.C"),
+    (PY_RE, r"litestar.middleware.session.base.ConfigT"),
+    (PY_RE, r"multidict\..*"),
+    (PY_RE, r"litestar\.connection\.base\.UserT"),
+    (PY_RE, r"litestar\.connection\.base\.AuthT"),
+    (PY_RE, r"litestar\.connection\.base\.StateT"),
+    (PY_RE, r"litestar\.connection\.base\.HandlerT"),
 ]
 
 # Warnings about missing references to those targets in the specified location will be ignored.
@@ -145,7 +168,7 @@ ignore_missing_refs = {
     re.compile(r"litestar\.contrib\.sqlalchemy\.*"): re.compile(
         ".*(ConnectionT|EngineT|SessionT|SessionMakerT|SlotsBase)"
     ),
-    re.compile(r"litestar\.dto.*"): re.compile(".*T|.*ParsedType|Empty"),
+    re.compile(r"litestar\.dto.*"): re.compile(".*T|.*FieldDefinition|Empty"),
 }
 
 

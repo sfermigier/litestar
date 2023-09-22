@@ -22,9 +22,9 @@ from .util import get_from_stream
 
 @pytest.fixture(
     params=[
+        pytest.param("redis_pub_sub_backend", id="redis:pubsub", marks=pytest.mark.xdist_group("redis")),
+        pytest.param("redis_stream_backend", id="redis:stream", marks=pytest.mark.xdist_group("redis")),
         pytest.param("memory_backend", id="memory"),
-        pytest.param("redis_stream_backend", id="redis:stream"),
-        pytest.param("redis_pub_sub_backend", id="redis:pubsub"),
     ]
 )
 def channels_backend(request: FixtureRequest) -> ChannelsBackend:
@@ -74,7 +74,7 @@ async def test_pub_sub_wait_published(channels_backend: ChannelsBackend) -> None
     assert res == [b"foo"]
 
 
-@pytest.mark.flaky(reruns=5)
+@pytest.mark.flaky(reruns=10)
 async def test_pub_sub_non_blocking(channels_backend: ChannelsBackend) -> None:
     async with ChannelsPlugin(backend=channels_backend, channels=["something"]) as plugin:
         subscriber = await plugin.subscribe("something")
@@ -87,7 +87,7 @@ async def test_pub_sub_non_blocking(channels_backend: ChannelsBackend) -> None:
     assert res == [b"foo"]
 
 
-@pytest.mark.flaky(reruns=5)
+@pytest.mark.flaky(reruns=10)
 async def test_pub_sub_run_in_background(channels_backend: ChannelsBackend, async_mock: AsyncMock) -> None:
     async with ChannelsPlugin(backend=channels_backend, channels=["something"]) as plugin:
         subscriber = await plugin.subscribe("something")
@@ -149,7 +149,7 @@ async def test_subscribe(
 ) -> None:
     plugin = ChannelsPlugin(
         backend=memory_backend,
-        channels=["foo", "bar"] if not arbitrary_channels_allowed else None,
+        channels=None if arbitrary_channels_allowed else ["foo", "bar"],
         arbitrary_channels_allowed=arbitrary_channels_allowed,
     )
     memory_backend.subscribe = async_mock  # type: ignore[method-assign]
@@ -175,7 +175,7 @@ async def test_start_subscription(
 ) -> None:
     plugin = ChannelsPlugin(
         backend=memory_backend,
-        channels=["foo", "bar"] if not arbitrary_channels_allowed else None,
+        channels=None if arbitrary_channels_allowed else ["foo", "bar"],
         arbitrary_channels_allowed=arbitrary_channels_allowed,
     )
     memory_backend.subscribe = async_mock  # type: ignore[method-assign]
@@ -244,7 +244,7 @@ async def test_unsubscribe(
     subscriber_1 = await plugin.subscribe(channels=channels)
     subscriber_2 = await plugin.subscribe(channels=channels)
 
-    await plugin.unsubscribe(subscriber_1, channels=channels if not unsubscribe_all else None)
+    await plugin.unsubscribe(subscriber_1, channels=None if unsubscribe_all else channels)
 
     if isinstance(channels, str):
         channels = [channels]
