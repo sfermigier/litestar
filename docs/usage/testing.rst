@@ -105,7 +105,7 @@ Since we would probably need to use the client in multiple places, it's better t
 
 
             @pytest.fixture(scope="function")
-            async def test_client() -> AsyncTestClient:
+            def test_client() -> AsyncTestClient:
                 return AsyncTestClient(app=app)
 
 
